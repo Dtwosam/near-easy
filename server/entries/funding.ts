@@ -1,4 +1,4 @@
-import { handleFundingHttp } from '../../server/fundingHandler';
+import { handleFundingHttp } from '../fundingHandler';
 import { rawBody, send } from '../http';
 import type { ApiRequest, ApiResponse } from '../http';
 

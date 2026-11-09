@@ -1,6 +1,6 @@
-import { handleAssistantHttp } from '../server/assistantHandler';
-import { clientIp, rawBody, send } from './http';
-import type { ApiRequest, ApiResponse } from './http';
+import { handleAssistantHttp } from '../assistantHandler';
+import { clientIp, rawBody, send } from '../http';
+import type { ApiRequest, ApiResponse } from '../http';
 
 export const config = { maxDuration: 60 };
 

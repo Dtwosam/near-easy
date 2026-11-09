@@ -4,7 +4,7 @@ NEAR Easy is a plain-English guide to NEAR. It answers questions with Gemini, re
 
 You approve every signature in your own wallet. The app does not ask for a seed phrase or a private key, and it does not sign by itself. Mainnet transfers and real-money transactions stay off.
 
-This repository is prepared for a hackathon demonstration. No end-to-end funding transfer or staking transaction has been confirmed from this app. Do not describe a transaction as successful unless NEAR or Tidepool returned that result.
+The public app is [https://near-easy.vercel.app](https://near-easy.vercel.app). The source is in this repository. No end-to-end funding transfer or staking transaction has been confirmed from this app. Do not describe a transaction as successful unless NEAR or Tidepool returned that result.
 
 ## Features
 
@@ -26,7 +26,7 @@ Tidepool test wNEAR (`wnear.tidepool-sandbox.testnet`) cannot be staked as nativ
 The interface is a Vite and React single-page app. Local development and Vercel share the same request handlers:
 
 - Locally, Vite middleware in `server/assistantPlugin.ts` and `server/tidepoolPlugin.ts` calls those handlers.
-- On Vercel, `api/assistant.ts` and `api/funding/[route].ts` call the same handlers. `vercel.json` sends every path outside `/api` to `index.html`, so the nine pages load through the client router.
+- On Vercel, the build bundles `server/entries/assistant.ts` and `server/entries/funding.ts` into Node functions at `api/assistant.js` and `api/funding/[route].js`. `vercel.json` sends every path outside `/api` to `index.html`, so the nine pages load through the client router.
 
 `GET /api/assistant` reports whether `GEMINI_API_KEY` is set. `POST /api/assistant` calls Gemini 3.5 Flash-Lite. The key is read from the server environment. It is not prefixed with `VITE_` and is not included in the browser bundle. On Vercel, set `GEMINI_API_KEY` as a server environment variable.
 
@@ -88,7 +88,7 @@ HOST=0.0.0.0 PORT=4173 npm start
 - The assistant does not receive your account id, wallet app name, or staking pool ids. It may receive aggregate figures marked live, unknown, loading, or sample.
 - Notification switches are saved on the device. No alert service is connected.
 - The assistant rate limit is per server process. It reduces abuse of the free Gemini quota. It is not a shared counter across every running instance.
-- The public site URL is recorded here after the Vercel deployment is checked.
+- The public site is https://near-easy.vercel.app.
 
 ## Security
 

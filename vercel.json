@@ -4,8 +4,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/assistant.ts": { "maxDuration": 60 },
-    "api/funding/[route].ts": { "maxDuration": 30 }
+    "api/assistant.js": { "maxDuration": 60 },
+    "api/funding/[route].js": { "maxDuration": 30 }
   },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
