@@ -43,8 +43,11 @@ const samplePools = [
   { id: 'low.pool.near', label: 'low', commission: '1%', fraction: '1/100', poolStake: '1' },
   { id: 'high.pool.near', label: 'high', commission: '4%', fraction: '4/100', poolStake: '2' },
 ];
-check('unnamed pool stays first', chain.chooseStakePool(samplePools, null)?.id === 'low.pool.near');
+check('unnamed preference selects nothing', chain.chooseStakePool(samplePools, null) === null && chain.chooseStakePool(samplePools, '  ') === null);
 check('named label is selected', chain.chooseStakePool(samplePools, 'high')?.id === 'high.pool.near');
+check('named pool account is selected', chain.chooseStakePool(samplePools, 'low.pool.near')?.id === 'low.pool.near');
+check('one partial match is kept', chain.chooseStakePool(samplePools, 'high.pool')?.id === 'high.pool.near');
+check('several partial matches select nothing', chain.chooseStakePool(samplePools, 'pool.near') === null);
 check('unknown validator is not replaced', chain.chooseStakePool(samplePools, 'figment') === null);
 
 const amount = 10n ** 24n;

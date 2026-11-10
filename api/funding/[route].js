@@ -245,6 +245,29 @@ function statusLabel(status) {
 function isTerminalStatus(status) {
   return status === "SUCCESS" || status === "REFUNDED" || status === "FAILED";
 }
+var verifiedTestnetFunding = {
+  depositAddress: "DV54oCBvdWA1FZhdFihJ776uxS2WAtaMQJfz48ckka47",
+  status: "SUCCESS",
+  label: statusLabel("SUCCESS"),
+  when: "2026-11-10T12:54:18.428Z",
+  origin: "2 USDC \xB7 Solana devnet",
+  destination: "1.9948 USDC to roundwheat3869.testnet",
+  amountIn: "2",
+  amountOut: "1.9948",
+  refundReason: "",
+  hashes: [
+    {
+      hash: "4V3uuKiyH6fJCd2MPuzwtnv4JRspsJgS28SP2H58V3gSjykvR7Nk55sCZW2BzbUkG5BRTWCfsB6SAgXUd5S7ScK",
+      url: "https://explorer.solana.com/tx/4V3uuKiyH6fJCd2MPuzwtnv4JRspsJgS28SP2H58V3gSjykvR7Nk55sCZW2BzbUkG5BRTWCfsB6SAgXUd5S7ScK?cluster=devnet",
+      label: "Solana devnet deposit"
+    },
+    {
+      hash: "9BYDjZ6QMjDasc1cJS4Bydoa5QvvPZJ3xBjKsHa9do5U",
+      url: "https://testnet.nearblocks.io/txns/9BYDjZ6QMjDasc1cJS4Bydoa5QvvPZJ3xBjKsHa9do5U",
+      label: "NEAR testnet settlement"
+    }
+  ]
+};
 function text(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }

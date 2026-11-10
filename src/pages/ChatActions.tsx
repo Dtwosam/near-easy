@@ -59,6 +59,64 @@ type StakeOutcome =
   | { kind: 'success'; hash: string; explorer: string; staked: string }
   | { kind: 'rejected' | 'failed' | 'network' | 'unconfirmed'; hash: string | null; message: string };
 
+const SHOWN_VALIDATORS = 4;
+
+function ValidatorPicker({
+  pools,
+  moreOpen,
+  onMore,
+  onSelect,
+}: {
+  pools: StakePool[];
+  moreOpen: boolean;
+  onMore: () => void;
+  onSelect: (pool: StakePool) => void;
+}) {
+  const visible = moreOpen ? pools : pools.slice(0, SHOWN_VALIDATORS);
+  const hidden = Math.max(0, pools.length - SHOWN_VALIDATORS);
+  return (
+    <div id="chat-validator-picker">
+      <h2>Which validator do you want to use?</h2>
+      <p>These pools were read from NEAR testnet. Commission and pool stake come from each pool contract. A reward rate is not estimated. Nothing is selected until you choose.</p>
+      <div className="validator-options">
+        {visible.map((item) => (
+          <button key={item.id} type="button" className="validator-option" data-pool-id={item.id} onClick={() => onSelect(item)}>
+            <strong>{item.label}</strong>
+            <span>Commission {item.commission}</span>
+            <span className="hint">Fee fraction {item.fraction}, read from the pool.</span>
+            <span className="hint">Pool stake {item.poolStake}.</span>
+            <span className="hint">{item.staking === 'open' ? 'Staking was open when this pool was read.' : 'Pause status was unread.'}</span>
+            <span className="validator-id">{item.id}</span>
+          </button>
+        ))}
+      </div>
+      <div className="inline-actions">
+        {hidden > 0 ? (
+          <Button id="chat-validators-more" aria-expanded={moreOpen} onClick={onMore}>
+            {moreOpen ? 'Show fewer validators' : 'Other validators'}
+          </Button>
+        ) : null}
+        <a
+          id={hidden > 0 ? undefined : 'chat-validators-more'}
+          className="btn btn-secondary"
+          href="https://testnet.nearblocks.io/validators"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {hidden > 0 ? 'Public testnet validator list' : 'Other validators'}
+        </a>
+      </div>
+      {moreOpen && hidden > 0 ? (
+        <p className="hint">Showing {pools.length} pools with a readable commission. The public list has more.</p>
+      ) : hidden > 0 ? (
+        <p className="hint">{hidden} more readable pools stay hidden until you choose Other validators.</p>
+      ) : (
+        <p className="hint">These are the pools whose commission could be read. Other validators opens the public testnet list.</p>
+      )}
+    </div>
+  );
+}
+
 export function ChatStake({ prompt }: { prompt: string }) {
   const store = useStore();
   const amount = parseStakeAsk(prompt) ?? '';
@@ -68,6 +126,7 @@ export function ChatStake({ prompt }: { prompt: string }) {
   const [poolsError, setPoolsError] = useState('');
   const [loadingPools, setLoadingPools] = useState(false);
   const [pool, setPool] = useState<StakePool | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [missingPreference, setMissingPreference] = useState(false);
   const [checked, setChecked] = useState(false);
   const [sending, setSending] = useState(false);
@@ -79,15 +138,28 @@ export function ChatStake({ prompt }: { prompt: string }) {
   const tooLarge = requested != null && stakeable != null && requested > stakeable;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setPools([]);
+      setPool(null);
+      setMoreOpen(false);
+      setChecked(false);
+      setMissingPreference(false);
+      setLoadingPools(false);
+      setPoolsError('');
+      return;
+    }
     let cancelled = false;
     setLoadingPools(true);
     setPoolsError('');
+    setPool(null);
+    setMoreOpen(false);
+    setChecked(false);
+    setMissingPreference(false);
     loadStakePools('testnet')
       .then((next) => {
         if (cancelled) return;
         setPools(next);
-        const chosen = chooseStakePool(next, preference);
+        const chosen = preference ? chooseStakePool(next, preference) : null;
         setPool(chosen);
         setMissingPreference(Boolean(preference) && !chosen);
         if (!next.length) setPoolsError('No staking pool with a readable commission was returned.');
@@ -102,6 +174,12 @@ export function ChatStake({ prompt }: { prompt: string }) {
       cancelled = true;
     };
   }, [enabled, preference]);
+
+  function selectPool(next: StakePool) {
+    setPool(next);
+    setChecked(false);
+    setResult(null);
+  }
 
   async function approve() {
     if (sending || !checked || !pool || !store.accountId || !enabled || !requested || stakeable == null || requested > stakeable) return;
@@ -146,15 +224,25 @@ export function ChatStake({ prompt }: { prompt: string }) {
     && !store.balance.loading
     && Boolean(store.accountId)
     && Boolean(pool)
+    && requested != null
     && !tooLarge
     && !missingPreference;
+  const askForValidator = enabled && !preference && !pool && !loadingPools && !poolsError && pools.length > 0 && result?.kind !== 'success';
 
   return (
     <div className="flow" id="chat-stake">
       <p className="eyebrow">
         <Badge tone="accent">Available (Testnet)</Badge> Stake preview
       </p>
-      <p>This preview uses the connected wallet and the pool contract. The reply above does not set the amount, the validator, or the fee. Nothing is signed until you approve it.</p>
+      <p>
+        {!enabled
+          ? 'The reply above does not set the amount, the validator, or the fee. Mainnet staking is not enabled.'
+          : pool
+            ? 'This preview uses the connected wallet and the pool contract. The reply above does not set the amount, the validator, or the fee. Nothing is signed until you approve it.'
+            : missingPreference
+              ? 'The reply above does not replace the validator you named. Nothing was prepared.'
+              : 'The reply above does not set the amount, the validator, or the fee. Choose a validator before a preview is prepared. Nothing is signed until you approve it.'}
+      </p>
       {!enabled ? <p className="warn-box">Mainnet staking is not enabled. Nothing was submitted.</p> : null}
       {enabled && store.balance.kind === 'sample' ? <p className="warn-box">The sample layout is not a wallet. Connect a testnet account before staking.</p> : null}
       {enabled && store.balance.kind === 'empty' ? <p>Connect a NEAR testnet wallet so the available balance can be checked.</p> : null}
@@ -163,14 +251,23 @@ export function ChatStake({ prompt }: { prompt: string }) {
       {loadingPools ? <p className="loading-line" role="status">Reading validator commissions…</p> : null}
       {poolsError ? <p className="warn-box" role="alert">{poolsError}</p> : null}
       {missingPreference ? <p className="warn-box">No readable pool matched {preference}. Nothing was prepared.</p> : null}
-      {pool && !missingPreference ? (
+      {askForValidator ? (
+        <ValidatorPicker
+          pools={pools}
+          moreOpen={moreOpen}
+          onMore={() => setMoreOpen((open) => !open)}
+          onSelect={selectPool}
+        />
+      ) : null}
+      {enabled && pool && !missingPreference ? (
         <TxTable
           rows={[
             { label: 'Amount', value: `${amount} NEAR` },
-            { label: 'Validator', value: pool.label, hint: preference ? 'This matches the validator you named.' : 'No validator was named. This is the lowest commission that could be read.' },
+            { label: 'Validator', value: pool.label, hint: preference ? 'This matches the validator you named.' : 'You selected this validator.' },
             { label: 'Pool account', value: pool.id },
             { label: 'Commission', value: `${pool.commission} (${pool.fraction}), read from the pool` },
             { label: 'Pool stake', value: pool.poolStake },
+            { label: 'Staking', value: pool.staking === 'open' ? 'Open when the pool was read' : 'Pause status was unread' },
             { label: 'Network', value: 'NEAR testnet' },
             { label: 'Account', value: store.accountId ?? 'Not connected' },
             { label: 'Available', value: store.balance.kind === 'live' ? nearLine(store.balance, 'available') : 'Unknown' },
@@ -215,6 +312,9 @@ export function ChatStake({ prompt }: { prompt: string }) {
           <div className="inline-actions">
             {enabled && store.balance.kind === 'empty' ? <Button variant="primary" onClick={store.openConnect}>Connect a NEAR wallet</Button> : null}
             {!enabled ? <Button variant="primary" onClick={() => void store.setNetwork('testnet')}>Use testnet</Button> : null}
+            {enabled && pool && !preference ? (
+              <Button onClick={() => { setPool(null); setChecked(false); setResult(null); }}>Choose a different validator</Button>
+            ) : null}
             {ready ? (
               <Button id="chat-stake-approve" variant="primary" disabled={!checked || sending} onClick={() => void approve()}>
                 Approve in wallet
@@ -224,7 +324,6 @@ export function ChatStake({ prompt }: { prompt: string }) {
           </div>
         </>
       ) : null}
-      {pools.length && !pool && !missingPreference && !loadingPools ? <p className="hint">Choose a validator on the staking page. Nothing was prepared here.</p> : null}
     </div>
   );
 }

@@ -16,6 +16,8 @@ export type StakePool = {
   commission: string;
   fraction: string;
   poolStake: string;
+  /** `open` only when the pool contract returned is_staking_paused false. */
+  staking: 'open' | 'unread';
 };
 
 type RpcFailure = { ok: false };
@@ -121,6 +123,7 @@ export async function loadStakePools(network: NetworkId): Promise<StakePool[]> {
       commission,
       fraction: `${fee.numerator.toString()}/${fee.denominator.toString()}`,
       poolStake: total == null ? 'Unavailable' : `${formatNear(total)} NEAR`,
+      staking: pausedText === 'false' ? 'open' : 'unread',
     });
   });
 
@@ -128,10 +131,10 @@ export async function loadStakePools(network: NetworkId): Promise<StakePool[]> {
   return pools.slice(0, 12);
 }
 
-/** Prefer the named pool. Otherwise keep the lowest commission already sorted to the front. */
+/** Return the uniquely named pool. An empty preference does not select one. */
 export function chooseStakePool(pools: StakePool[], preference: string | null): StakePool | null {
   const named = preference?.trim().toLowerCase() ?? '';
-  if (!named) return pools[0] ?? null;
+  if (!named) return null;
   const exact = pools.find((pool) => pool.id.toLowerCase() === named || pool.label.toLowerCase() === named);
   if (exact) return exact;
   const partial = pools.filter((pool) => pool.id.toLowerCase().includes(named) || pool.label.toLowerCase().includes(named));
