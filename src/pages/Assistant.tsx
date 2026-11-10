@@ -9,6 +9,7 @@ import type { Intent } from '../logic';
 import { useStore } from '../store';
 import type { ChatMessage } from '../store';
 import { Badge, Capability, useTitle } from '../ui';
+import { ChatFunding, ChatStake } from './ChatActions';
 
 type AssistantTurn = Extract<ChatMessage, { role: 'assistant' }>;
 
@@ -47,7 +48,7 @@ function FundingHandoff({ prompt, stake }: { prompt: string; stake: boolean }) {
       </p>
       {!parsed.tokenWasNamed ? <p className="hint">The token was not named, so USDC is selected. You can change it on the funding page.</p> : null}
       {!parsed.chainWasNamed ? <p className="hint">The network was not named, so Solana devnet is selected. You can change it on the funding page.</p> : null}
-      <p className="hint">The funding page asks Tidepool for a testnet quote. Connect Phantom or another Solana wallet there, or an EVM wallet on Base Sepolia. You approve the test transfer in that wallet. A finished transfer is shown only after the test network confirms it and Tidepool reports SUCCESS. Test wNEAR is not the native NEAR used for staking, and it cannot be converted here. Real-money transfers stay off.</p>
+      <p className="hint">Name an amount to prepare a Tidepool quote here. Solana devnet, Base Sepolia, and NEAR testnet can be approved in this chat. A finished transfer is shown only after Tidepool reports SUCCESS. Test wNEAR cannot be staked as native NEAR. Real-money transfers stay off.</p>
       {stake ? <p>Staking is a separate step after native NEAR is in the wallet. This request does not stake the bridged token.</p> : null}
       <div className="action-row">
         <Link className="action-card" to={fundingPath(prompt)}>
@@ -69,7 +70,7 @@ function Workflow({ intent, prompt }: { intent: Intent; prompt: string }) {
   if (intent === 'execute-blocked') {
     return (
       <p className="warn-box" role="status">
-        This chat will not sign. Open Easy Staking and approve a stake in your wallet. Nothing else is broadcast from here.
+        A sentence does not approve a transaction. Use Approve in wallet on the preview. Nothing is signed until you do.
       </p>
     );
   }
@@ -80,7 +81,7 @@ function Workflow({ intent, prompt }: { intent: Intent; prompt: string }) {
   const items = intent === 'wallet'
     ? [{ label: 'Wallet', to: '/wallet', text: 'Open the account. Nothing is sent.' }]
     : intent === 'stake'
-      ? [{ label: 'Easy Staking', to: stakingPath(prompt), text: stakeAmount ? `Open staking for ${stakeAmount} NEAR. Your wallet must approve.` : 'Open staking. Your wallet must approve.' }]
+      ? [{ label: 'Easy Staking', to: stakingPath(prompt), text: /\bunstak/i.test(prompt) ? 'Unstaking is not available. The staking page explains the wait.' : stakeAmount ? `Open staking for ${stakeAmount} NEAR. Your wallet must approve.` : 'Open staking and enter an amount. Your wallet must approve.' }]
       : intent === 'discover'
         ? [{ label: 'Directory', to: '/explore', text: 'Browse projects with public sites.' }]
         : intent === 'start'
@@ -167,9 +168,9 @@ export function AssistantPage() {
   }
 
   const lede = configured === 'yes'
-    ? 'Ask in everyday English. A live model answers from the server. This chat does not send transactions.'
+    ? 'Ask in everyday English. A live model answers from the server. A testnet stake or Tidepool quote can be approved here. Your wallet signs it. Mainnet stays off.'
     : configured === 'no'
-      ? 'The assistant server has no API key, so a live reply is unavailable. You can still open a preview. Nothing is sent.'
+      ? 'The assistant server has no API key, so a live reply is unavailable. A testnet preview can still be prepared. Nothing is signed until you approve it.'
       : 'Checking the assistant.';
   const ready = configured === 'yes'
     ? 'Live answers are on'
@@ -184,7 +185,7 @@ export function AssistantPage() {
           <div>
             <h1 className="page-title">Assistant</h1>
             <p className="lede">{lede}</p>
-            <Capability ready={ready} chain="This chat does not send transactions or show quotes" />
+            <Capability ready={ready} chain="Mainnet stays off. The wallet still signs." />
           </div>
           <div className="mode-switch" role="radiogroup" aria-label="Explanation mode">
             <button type="button" role="radio" aria-checked={store.mode === 'simple'} className={store.mode === 'simple' ? 'on' : ''} onClick={() => store.setMode('simple')}>
@@ -203,7 +204,7 @@ export function AssistantPage() {
                 <Icon name="spark" />
               </span>
               <h2>Ask in plain English</h2>
-              <p>Ask about NEAR, your wallet, staking, or testnet funding. This chat does not send a transaction.</p>
+              <p>Ask about NEAR, your wallet, staking, or testnet funding. A preview appears here. Nothing is signed until you approve it.</p>
               <div className="suggest-grid">
                 {suggestions.map((suggestion) => (
                   <button key={suggestion} type="button" className="suggest" onClick={() => submit(suggestion)}>
@@ -240,8 +241,14 @@ export function AssistantPage() {
                       <p className="loading-line" role="status" aria-busy="true">Asking the assistant…</p>
                     ) : null}
                   </div>
-                  <Workflow intent={workflowIntent(message)} prompt={message.prompt} />
-                  <p className="hint">Nothing on this screen asks your wallet to approve a transaction.</p>
+                  {workflowIntent(message) === 'stake' && parseStakeAsk(message.prompt) ? (
+                    <ChatStake prompt={message.prompt} />
+                  ) : (workflowIntent(message) === 'fund' || workflowIntent(message) === 'fund-stake') && parseFundingAsk(message.prompt).amountWasNamed ? (
+                    <ChatFunding prompt={message.prompt} separateStake={workflowIntent(message) === 'fund-stake'} />
+                  ) : (
+                    <Workflow intent={workflowIntent(message)} prompt={message.prompt} />
+                  )}
+                  <p className="hint">Nothing is signed from the reply itself. A preview asks your wallet only after you press Approve.</p>
                   {message.status === 'error' ? (
                     <button type="button" className="text-btn" onClick={() => submit(message.prompt)}>
                       Try again

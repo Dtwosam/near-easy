@@ -12,7 +12,7 @@ Nine pages share one Premium Dark Neon interface: Home, Assistant, Wallet, Fundi
 
 | Area | What you can do now | What stays incomplete |
 | --- | --- | --- |
-| Assistant | Gemini 3.5 Flash-Lite answers from the server. The chat keeps the conversation, reads verified NEAR figures, and opens wallet, funding, staking, or the directory. | The chat cannot sign, quote a received amount, or send funds. |
+| Assistant | Gemini 3.5 Flash-Lite answers from the server. The chat keeps the conversation and reads verified NEAR figures. A named testnet stake, or a named Tidepool transfer, is prepared in the chat. HOT Connect, Phantom, or a Base Sepolia wallet signs it. Success waits for NEAR or Tidepool. | The model cannot sign, change the preview, or invent a quote. Unstaking and mainnet stay off. A sentence is not approval. |
 | NEAR wallet | HOT Connect opens a wallet you choose. The account and NEAR balance are read after you approve. | Sending NEAR is a checked preview. It does not broadcast. |
 | Funding | Tidepool testnet quotes cover the networks Tidepool lists. Phantom and other Solana wallets can approve a Solana devnet transfer. An EVM wallet can approve Base Sepolia, chain id 84532. A NEAR testnet wallet can approve a token deposit. The origin transaction is checked before Tidepool is told. One transfer is confirmed: 2 test USDC on Solana devnet (`4V3uuKiyH6fJCd2MPuzwtnv4JRspsJgS28SP2H58V3gSjykvR7Nk55sCZW2BzbUkG5BRTWCfsB6SAgXUd5S7ScK`) settled as 1.9948 Tidepool Testnet USDC (`usdc.tidepool-sandbox.testnet`) to `roundwheat3869.testnet`. NEAR finalized `9BYDjZ6QMjDasc1cJS4Bydoa5QvvPZJ3xBjKsHa9do5U`. Tidepool status was `SUCCESS`. | Success is shown only after Tidepool reports `SUCCESS` for that deposit. Base Sepolia `SUCCESS` has not been observed. Other chains show the deposit for your own wallet. Mainnet stays off. The settled token is not wNEAR and not native NEAR. |
 | Staking | On testnet, a connected wallet can approve `deposit_and_stake`. Commission is read from the pool. Success is shown only after NEAR finalizes the transaction and the staked balance increases. One testnet stake is confirmed: `9mjZw2rENHfxS2frJW7c2Ds2wzbfDsvD8Fzc1M6rGMPV`, 0.02 NEAR from `roundwheat3869.testnet` to `pennyvalidators.pool.f863973.m0`. NEAR marked it final, and the pool’s total staked balance rose by that deposit. | Mainnet staking is off. Unstaking is explained and not built. |
@@ -162,7 +162,7 @@ A honest demo, with no broadcast required:
 
 1. Start on the homepage and read what the app does, including the wNEAR limit.
 2. Ask the assistant “Check my NEAR wallet.” With no wallet connected, it must not invent a balance.
-3. Ask “Use $100 from Solana to stake NEAR.” Open the testnet quote link and the separate staking link. The staking amount must not be filled with the bridged amount.
+3. Ask “Use $100 from Solana to stake NEAR.” The chat prepares a Tidepool quote. Staking stays a separate link, and that link must not fill the staking amount with the bridged amount.
 4. On Funding, request a dry quote and show the Tidepool output. Stop before Prepare deposit if you do not want a waiting deposit address.
 5. On Staking, show a live commission and the mainnet lock.
 6. On Settings, show that the seed phrase stays in the wallet and that Solana devnet and Base Sepolia are the only in-app origin approvals.

@@ -3,20 +3,18 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { sampleWallet } from '../data';
 import { parseAmount, parseStakeAsk } from '../logic';
 import { formatNear } from '../near/format';
-import { confirmStake, loadStakePools, readAccountStaked } from '../near/stakeChain';
+import { loadStakePools } from '../near/stakeChain';
 import type { StakePool } from '../near/stakeChain';
 import {
   explorerAccount,
   explorerTx,
-  explainStakeError,
   FEE_RESERVE_YOCTO,
   parseStakeAmount,
   saveStakeActivity,
   stakeableYocto,
   stakingEnabled,
-  transactionHash,
 } from '../near/stakePlan';
-import { requestStakeSignature } from '../near/stakeSend';
+import { executeStake } from '../near/stakeSend';
 import { nearLine } from '../near/present';
 import { useStore } from '../store';
 import { Badge, Button, Capability, Field, Help, Stepper, TxTable, useTitle } from '../ui';
@@ -128,20 +126,11 @@ export function StakingPage() {
     setSending(true);
     setError('');
     try {
-      const previous = await readAccountStaked(store.network, validator.id, store.accountId);
-      const outcome = await requestStakeSignature({
+      const confirmed = await executeStake({
         network: store.network,
         signerId: store.accountId,
         poolId: validator.id,
         amountYocto: requested,
-      });
-      const confirmed = await confirmStake({
-        network: store.network,
-        hash: transactionHash(outcome),
-        signerId: store.accountId,
-        poolId: validator.id,
-        amountYocto: requested,
-        previousStakedYocto: previous,
       });
       if (!confirmed.ok) {
         setResult({ kind: confirmed.kind, hash: confirmed.hash, message: confirmed.message });
@@ -166,9 +155,8 @@ export function StakingPage() {
         staked: formatNear(confirmed.stakedYocto),
       });
       setStage(3);
-    } catch (caught) {
-      const explained = explainStakeError(caught);
-      setResult({ kind: explained.kind, hash: null, message: explained.message });
+    } catch {
+      setResult({ kind: 'failed', hash: null, message: 'The stake could not be submitted. Nothing was confirmed.' });
       setStage(3);
     } finally {
       setSending(false);

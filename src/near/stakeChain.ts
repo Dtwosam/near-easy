@@ -128,6 +128,16 @@ export async function loadStakePools(network: NetworkId): Promise<StakePool[]> {
   return pools.slice(0, 12);
 }
 
+/** Prefer the named pool. Otherwise keep the lowest commission already sorted to the front. */
+export function chooseStakePool(pools: StakePool[], preference: string | null): StakePool | null {
+  const named = preference?.trim().toLowerCase() ?? '';
+  if (!named) return pools[0] ?? null;
+  const exact = pools.find((pool) => pool.id.toLowerCase() === named || pool.label.toLowerCase() === named);
+  if (exact) return exact;
+  const partial = pools.filter((pool) => pool.id.toLowerCase().includes(named) || pool.label.toLowerCase().includes(named));
+  return partial.length === 1 ? partial[0] : null;
+}
+
 export async function readAccountStaked(network: NetworkId, poolId: string, accountId: string): Promise<bigint | null> {
   const text = await viewCall(network, poolId, 'get_account_staked_balance', { account_id: accountId });
   return asYocto(text);

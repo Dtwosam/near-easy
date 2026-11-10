@@ -23,7 +23,10 @@ function check(name, ok, detail = '') {
 }
 
 const move = logic.parseFundingAsk('Move 10 test USDC from Solana to NEAR');
-check('move 10 parses Solana USDC', move.amount === '10' && move.chain === 'sol' && move.token === 'USDC' && move.tokenWasNamed && move.chainWasNamed, JSON.stringify(move));
+check('move 10 parses Solana USDC', move.amount === '10' && move.chain === 'sol' && move.token === 'USDC' && move.tokenWasNamed && move.chainWasNamed && move.amountWasNamed === true, JSON.stringify(move));
+check('an unnamed amount is not quoted', logic.parseFundingAsk('Move funds from Solana').amountWasNamed === false);
+check('named testnet recipient', logic.parseFundingRecipient('Send 2 USDC to roundwheat3869.testnet') === 'roundwheat3869.testnet');
+check('mainnet recipient is not used', logic.parseFundingRecipient('Send 2 USDC to alice.near') === null);
 const stakePath = logic.parseFundingAsk('Use $100 from Solana to stake NEAR');
 check('fund-stake amount stays 100 USDC', stakePath.amount === '100' && stakePath.chain === 'sol' && stakePath.token === 'USDC');
 check('fund intent for a move', logic.matchIntent('Move 10 test USDC from Solana to NEAR') === 'fund');

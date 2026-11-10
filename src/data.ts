@@ -21,7 +21,7 @@ export const groups = [
 ] as const;
 
 export const features: Feature[] = [
-  { id: 'assistant', group: 'Wallet & Onboarding', name: 'Wallet Assistant', status: 'building', priority: true, href: '/assistant', summary: 'A live model answers when an API key is set. It does not send transactions.' },
+  { id: 'assistant', group: 'Wallet & Onboarding', name: 'Wallet Assistant', status: 'building', priority: true, href: '/assistant', summary: 'A live model answers when an API key is set. A testnet stake or Tidepool quote can be approved here. The wallet still signs. Mainnet stays off.' },
   { id: 'connect', group: 'Wallet & Onboarding', name: 'Wallet connection', status: 'available', href: '/wallet', summary: 'Connect a NEAR wallet. Approval stays in that wallet.' },
   { id: 'first-visit', group: 'Wallet & Onboarding', name: 'First-visit guide', status: 'available', href: '/', summary: 'The homepage and suggested requests are ready.' },
   { id: 'glossary', group: 'Wallet & Onboarding', name: 'Glossary', status: 'available', href: '/settings#help', summary: 'Short definitions for accounts, gas, and staking.' },

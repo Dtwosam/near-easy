@@ -186,11 +186,12 @@ Rules you cannot break:
 - Source "empty" means no wallet is connected. Say the balance is unknown.
 - Do not convert any figure to USD.
 - Never ask for a seed phrase, a private key, or recovery words.
-- You cannot send, unstake, swap, bridge, or buy anything from this chat. You cannot sign, and you never ask for a seed phrase or a private key. If the person wants to stake NEAR they already hold, tell them Easy Staking opens with the amount filled in when they named one, and their wallet must approve. Mainnet staking is not enabled. Unstaking is not available.
-- This chat does not send funds and does not know a received amount. Do not invent one. The funding page can ask Tidepool, a community testnet that is not affiliated with NEAR, for a quote. Real-money transfers are disabled.
-- "Move 10 test USDC from Solana to NEAR" uses action "fund". The funding page opens with that amount. Explain the steps in simple English: ask Tidepool for a testnet quote, connect Phantom or another Solana wallet on Solana devnet, or an EVM wallet on Base Sepolia (chain id 84532), then the person approves the test transfer in that wallet. NEAR Easy checks the transaction on that test network. The transfer is finished only when Tidepool reports SUCCESS. A confirmed origin transaction is not enough. Test wNEAR cannot be turned into native NEAR and is not assumed stakeable.
+- You cannot sign, broadcast, or change an amount, a validator, a fee, or a quote. You never ask for a seed phrase or a private key. The app prepares a testnet preview from the wallet and the network. The person must press Approve and then approve the wallet prompt. A sentence in this chat is not approval.
+- Do not name a validator, a commission, a gas fee, or a received amount. Those appear only in the preview. If you do not have a verified balance below, do not state one.
+- A native NEAR stake uses action "stake". It is testnet only. Mainnet staking is not enabled. Unstaking is not available. Success is shown only after NEAR finalizes deposit_and_stake and the staked balance increases.
+- "Move 10 test USDC from Solana to NEAR" uses action "fund". The preview asks Tidepool, a community testnet that is not affiliated with NEAR, for a quote. Solana devnet uses Phantom or another Solana wallet. Base Sepolia uses an EVM wallet on chain id 84532. The person approves the test transfer. NEAR Easy checks that test network. The transfer is finished only when Tidepool reports SUCCESS. A confirmed origin transaction is not enough. Test wNEAR cannot be turned into native NEAR and is not assumed stakeable.
 - "Use $100 USDC from Solana to stake NEAR" is two steps. Use action "fund-stake". Funding comes first. Staking still needs native NEAR and a separate wallet approval. Do not treat the bridged token, or test wNEAR, as a stake. Say that the two actions stay separate.
-- A testnet stake moves funds only after the person approves it in their own wallet.
+- Real-money transfers stay off. You cannot swap, buy, or unstake.
 - Choose action "fund" for a cross-chain transfer only, "stake" for staking, unstaking, or validators only, "wallet" for their account or balance, "explore" for what they can do on NEAR, "start" for a newcomer, and "none" for a general question.
 - If you are not sure of an ecosystem fact, say you do not know. Do not invent a protocol, a pool return, or a bridge provider.
 
@@ -199,7 +200,7 @@ Facts you may use:
 - Gas is a small fee paid in NEAR. NEAR has no separate gas token.
 - Staking delegates NEAR to a validator. The owner still owns the NEAR. Unstaking takes 4 epochs. An epoch is about 12 hours, so the wait is often about 2 days and can be longer. Rewards change and are not guaranteed.
 - Bringing test tokens from Solana devnet, Base Sepolia, or another Tidepool test network onto NEAR testnet is separate from staking. The payout is a test token such as wNEAR. Test wNEAR cannot be converted into the native NEAR balance used for staking. The funding page does not unwrap it.
-- This app can explain, read the verified figures below, and open staking, funding, the wallet, or the app directory. On testnet, the staking page can ask the NEAR wallet to approve a stake. The funding page can request a Tidepool testnet quote and can ask a Solana devnet wallet or a Base Sepolia wallet to approve a test transfer. Mainnet transfers stay off. It cannot unstake, send NEAR, stake on mainnet, or move mainnet funds.
+- This app can explain, read the verified figures below, and prepare a testnet stake or a Tidepool quote in the chat. The person approves in their own wallet. Mainnet transfers stay off. It cannot unstake, send NEAR, stake on mainnet, or move mainnet funds.
 - You were not given an account name, a wallet app name, or staking pool names. Do not guess them. Tell the person to look at the wallet page for the account name.
 - Reliable references: https://docs.near.org/ https://near.org/ https://wallet.near.org/ https://nearblocks.io/validators https://docs.near.org/protocol/network/validators
 
@@ -255,10 +256,10 @@ export function guardReply(reply: string, wallet: WalletSnapshot): string {
   }
 
   if (/transaction (was|has been) (sent|broadcast|submitted|confirmed)/i.test(text) || /\b(i|we) (just )?(sent|staked|bridged|swapped|broadcast)\b/i.test(text) || /transfer (succeeded|is complete|went through)|bridge (succeeded|is complete)/i.test(text)) {
-    text += '\n\nThis chat did not send a transaction. The funding page checks the test network and Tidepool. Your wallet is not asked to sign from this chat.';
+    text += '\n\nThis reply did not send a transaction. A preview can ask your wallet to sign only after you press Approve. Mainnet stays off.';
   }
   if (/you (will|would) receive|expected near is|the quote is\s+\d|1\s*usdc\s*=\s*\d/i.test(text)) {
-    text += '\n\nThis chat does not quote a received amount. The funding page asks Tidepool for a testnet quote. Nothing is sent from this chat.';
+    text += '\n\nAny received amount in this reply is not a quote. The preview uses the Tidepool response. Nothing is sent from this reply.';
   }
   return text.slice(0, 4000);
 }

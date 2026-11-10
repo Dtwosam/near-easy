@@ -23,6 +23,7 @@ import {
   nearDepositAction,
   parseFundingAmount,
   pickToken,
+  quotePreviewRows,
   saveFundingActivity,
   tokensOn,
 } from '../funding/plan';
@@ -57,27 +58,6 @@ function chainFromQuery(value: string | null): string | null {
     xrp: 'xrp',
   };
   return named[text] ?? null;
-}
-
-function quoteRows(quote: PublicQuote) {
-  return [
-    { label: 'Source', value: `${quote.originLabel} · ${quote.originSymbol}` },
-    { label: 'Amount in', value: `${quote.amountInFormatted} ${quote.originSymbol}`, hint: 'From the Tidepool quote.' },
-    { label: 'Expected output', value: `${quote.amountOutFormatted} ${quote.destinationSymbol}`, hint: 'From the Tidepool quote.' },
-    { label: 'Minimum output', value: quote.minAmountOutFormatted ? `${quote.minAmountOutFormatted} ${quote.destinationSymbol}` : 'Not in the quote' },
-    { label: 'Quoted input value', value: quote.amountInUsd ? `${quote.amountInUsd} USD` : 'Not in the quote' },
-    { label: 'Quoted output value', value: quote.amountOutUsd ? `${quote.amountOutUsd} USD` : 'Not in the quote' },
-    {
-      label: 'Value gap in the quote',
-      value: quote.quotedValueGap ? `${quote.quotedValueGap} USD` : 'Not in the quote',
-      hint: 'Input value minus output value. This includes the provider fee and any price gap.',
-    },
-    { label: 'Withdraw fee', value: quote.withdrawFee ? `${quote.withdrawFee} ${quote.destinationSymbol}` : 'Not in the quote' },
-    { label: 'NEAR Easy fee', value: 'None. This app does not add a fee.' },
-    { label: 'Time estimate', value: quote.timeEstimate == null ? 'Not in the quote' : `${quote.timeEstimate} seconds after the deposit is seen` },
-    { label: 'Expiration', value: quote.deadline ?? 'Issued when you prepare the deposit' },
-    { label: 'Provider', value: 'Tidepool testnet', hint: 'Community-operated. Not affiliated with NEAR.' },
-  ];
 }
 
 export function FundingPage() {
@@ -495,7 +475,7 @@ export function FundingPage() {
 
   const chainLabels = catalog?.chains.map((item) => item.label) ?? [];
   const selectedChainLabel = catalog?.chains.find((item) => item.id === chain)?.label ?? '';
-  const rows = useMemo(() => (dryQuote ? quoteRows(dryQuote) : []), [dryQuote]);
+  const rows = useMemo(() => (dryQuote ? quotePreviewRows(dryQuote) : []), [dryQuote]);
   const broughtOver = Boolean(params.get('amount') || params.get('chain') || params.get('token'));
   const originPanel = chain === 'sol' || chain === 'base' ? (
     <OriginWallet

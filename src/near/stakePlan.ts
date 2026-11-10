@@ -169,6 +169,9 @@ export function explainStakeError(error: unknown): { kind: 'rejected' | 'network
   if (/does not match/.test(lower)) {
     return { kind: 'failed', message: 'The connected wallet does not match this account. Nothing was submitted.' };
   }
+  if (/insufficient|not enough/.test(lower)) {
+    return { kind: 'failed', message: 'The available balance is not enough for this stake and the fee reserve. Nothing was confirmed.' };
+  }
   if (/not connected|no accounts|sign in|no wallet selected|wallet not found/.test(lower)) {
     return { kind: 'failed', message: 'No wallet is connected for this network. Nothing was submitted.' };
   }

@@ -1,6 +1,7 @@
 import { getConnector } from './connector';
 import type { NetworkId } from './chain';
-import { stakeCall, stakingEnabled } from './stakePlan';
+import { confirmStake, readAccountStaked } from './stakeChain';
+import { explainStakeError, stakeCall, stakingEnabled, transactionHash } from './stakePlan';
 
 /**
  * Asks the connected HOT wallet to sign deposit_and_stake.
@@ -27,4 +28,42 @@ export async function requestStakeSignature(input: {
     receiverId: input.poolId,
     actions: [stakeCall(input.amountYocto)],
   });
+}
+
+/**
+ * The staking page and the assistant both use this path.
+ * It signs only through HOT Connect, then reports success only after NEAR finalizes the stake.
+ */
+export async function executeStake(input: {
+  network: NetworkId;
+  signerId: string;
+  poolId: string;
+  amountYocto: bigint;
+}): Promise<
+  | { ok: true; hash: string; stakedYocto: bigint }
+  | { ok: false; kind: 'rejected' | 'failed' | 'network' | 'unconfirmed'; hash: string | null; message: string }
+> {
+  if (!stakingEnabled(input.network)) {
+    return { ok: false, kind: 'failed', hash: null, message: 'Mainnet staking is not enabled. Nothing was submitted.' };
+  }
+  if (input.amountYocto <= 0n) {
+    return { ok: false, kind: 'failed', hash: null, message: 'Enter a stake amount greater than zero. Nothing was submitted.' };
+  }
+  try {
+    const previous = await readAccountStaked(input.network, input.poolId, input.signerId);
+    const outcome = await requestStakeSignature(input);
+    const confirmed = await confirmStake({
+      network: input.network,
+      hash: transactionHash(outcome),
+      signerId: input.signerId,
+      poolId: input.poolId,
+      amountYocto: input.amountYocto,
+      previousStakedYocto: previous,
+    });
+    if (!confirmed.ok) return { ok: false, kind: confirmed.kind, hash: confirmed.hash, message: confirmed.message };
+    return confirmed;
+  } catch (error) {
+    const explained = explainStakeError(error);
+    return { ok: false, kind: explained.kind, hash: null, message: explained.message };
+  }
 }

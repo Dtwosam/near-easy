@@ -34,7 +34,18 @@ check('deposit matches amount', call.params.deposit === (10n ** 24n).toString())
 check('gas is 300 TGas', call.params.gas === '300000000000000');
 check('mainnet staking stays disabled', plan.stakingEnabled('mainnet') === false && plan.stakingEnabled('testnet') === true);
 check('stake ask parses 5', logic.parseStakeAsk('Stake 5 NEAR') === '5');
+check('stake ask parses 0.5', logic.parseStakeAsk('Stake 0.5 NEAR') === '0.5');
 check('unstake does not fill a stake amount', logic.parseStakeAsk('Unstake 5 NEAR') === null);
+check('amount alone names no validator', logic.parseValidatorAsk('Stake 0.5 NEAR') === null);
+check('with names the validator', logic.parseValidatorAsk('Stake 0.5 NEAR with aurora') === 'aurora');
+check('pool account is kept', logic.parseValidatorAsk('Stake 1 NEAR to pennyvalidators.pool.f863973.m0') === 'pennyvalidators.pool.f863973.m0');
+const samplePools = [
+  { id: 'low.pool.near', label: 'low', commission: '1%', fraction: '1/100', poolStake: '1' },
+  { id: 'high.pool.near', label: 'high', commission: '4%', fraction: '4/100', poolStake: '2' },
+];
+check('unnamed pool stays first', chain.chooseStakePool(samplePools, null)?.id === 'low.pool.near');
+check('named label is selected', chain.chooseStakePool(samplePools, 'high')?.id === 'high.pool.near');
+check('unknown validator is not replaced', chain.chooseStakePool(samplePools, 'figment') === null);
 
 const amount = 10n ** 24n;
 const tx = {
@@ -64,6 +75,8 @@ try {
   mainnetBlocked = error instanceof Error && error.message === 'Mainnet staking is not enabled.';
 }
 check('mainnet signature is refused before a wallet opens', mainnetBlocked);
+const blockedStake = await send.executeStake({ network: 'mainnet', signerId: 'alice.near', poolId: 'figment.poolv1.near', amountYocto: amount });
+check('executeStake refuses mainnet before a wallet opens', blockedStake.ok === false && blockedStake.message === 'Mainnet staking is not enabled. Nothing was submitted.');
 
 try {
   const pools = await chain.loadStakePools('testnet');

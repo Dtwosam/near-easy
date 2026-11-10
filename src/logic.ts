@@ -1,3 +1,5 @@
+import { isNearTestnetAccount } from './funding/plan';
+
 export type Intent =
   | 'fund-stake'
   | 'start'
@@ -63,6 +65,27 @@ export function parseStakeAsk(text: string): string | null {
   return raw;
 }
 
+export function parseFundingRecipient(text: string): string | null {
+  const found = text.match(/\b([a-z\d](?:[a-z\d_-]{0,58})?\.testnet|[0-9a-f]{64})\b/i);
+  if (!found) return null;
+  const account = found[1].toLowerCase();
+  return isNearTestnetAccount(account) ? account : null;
+}
+
+const VALIDATOR_SKIP = new Set(['near', 'testnet', 'mainnet', 'the', 'a', 'an', 'my', 'wallet', 'me', 'this', 'account']);
+
+/** A pool name or pool account from the request. An amount alone is not a validator. */
+export function parseValidatorAsk(text: string): string | null {
+  const explicit = text.match(/\b(?:with|using|via|through|validator|pool)\s+([a-z\d][a-z\d._-]{0,63})/i);
+  if (explicit) {
+    const word = explicit[1].replace(/[.,;:]+$/, '').toLowerCase();
+    if (word && !VALIDATOR_SKIP.has(word)) return word;
+  }
+  const id = text.match(/\b([a-z\d](?:[a-z\d_-]*[a-z\d])?(?:\.[a-z\d](?:[a-z\d_-]*[a-z\d])?){1,5})\b/i);
+  if (id && /pool/i.test(id[1])) return id[1].toLowerCase();
+  return null;
+}
+
 function fundingAmount(raw: string | undefined): string | null {
   if (!raw || !/^\d{1,12}(\.\d{1,12})?$/.test(raw)) return null;
   const amount = Number(raw);
@@ -76,6 +99,7 @@ export function parseFundingAsk(text: string): {
   token: string;
   tokenWasNamed: boolean;
   chainWasNamed: boolean;
+  amountWasNamed: boolean;
 } {
   const lower = text.toLowerCase();
   const dollar = fundingAmount(lower.match(/\$\s*(\d{1,12}(?:\.\d{1,12})?)/)?.[1]);
@@ -140,5 +164,5 @@ export function parseFundingAsk(text: string): {
     token = 'BTC';
     tokenWasNamed = true;
   }
-  return { amount, chain, token, tokenWasNamed, chainWasNamed };
+  return { amount, chain, token, tokenWasNamed, chainWasNamed, amountWasNamed: Boolean(dollar ?? besideToken ?? verbAmount) };
 }
