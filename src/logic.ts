@@ -47,11 +47,13 @@ export function matchIntent(raw: string): Intent {
     return 'start';
   }
   if (/what can i do|what i can do|show me what|explore near/.test(text)) return 'discover';
+  // A transfer can name the source wallet, so this comes before a wallet question.
+  const cross = /\b(solana|base|arbitrum|ethereum|stellar|sui|bitcoin|xrp|usdc|usdt)\b/.test(text);
+  const verb = /\b(fund|bridge|cross-chain|cross chain|move|transfer|send)\b/.test(text)
+    || /\b(?:from|using|via|out\s+of)\s+(?:my\s+|the\s+|a\s+|an\s+)?(?:solana|base|arbitrum|ethereum|stellar|sui|bitcoin|btc|xrp)\b/.test(text);
+  if (cross && verb) return 'fund';
   if (/wallet|balance|my near/.test(text)) return 'wallet';
   if (/\b(un)?stak\w*|\bvalidator|\bdelegat/.test(text)) return 'stake';
-  const cross = /\b(solana|base|arbitrum|ethereum|stellar|sui|bitcoin|xrp|usdc|usdt)\b/.test(text);
-  const verb = /\b(fund|bridge|cross-chain|cross chain|move|transfer|send)\b/.test(text) || /\bfrom\s+(solana|base|arbitrum|ethereum|stellar|sui|bitcoin|btc|xrp)\b/.test(text);
-  if (cross && verb) return 'fund';
   return 'unknown';
 }
 
@@ -106,7 +108,7 @@ export function parseFundingAsk(text: string): {
   const besideToken = fundingAmount(lower.match(/(\d{1,12}(?:\.\d{1,12})?)\s*(?:test\s+)?(?:usdc|usdt|sol|eth|xlm|sui|xrp|btc|near)\b/)?.[1]);
   const verbAmount = fundingAmount(lower.match(/\b(?:move|send|transfer|bridge|fund|use)\s+(\d{1,12}(?:\.\d{1,12})?)\b/)?.[1]);
   const amount = dollar ?? besideToken ?? verbAmount ?? '100';
-  const from = lower.match(/\bfrom\s+(solana|ethereum|arbitrum|base|stellar|sui|bitcoin|btc|xrp|near)\b/);
+  const from = lower.match(/\b(?:from|using|via|out\s+of)\s+(?:my\s+|the\s+|a\s+|an\s+)?(solana|ethereum|arbitrum|base|stellar|sui|bitcoin|btc|xrp|near)(?:\s+wallet)?\b/);
   const chainWords: [RegExp, string][] = [
     [/\bbase\b/, 'base'],
     [/arbitrum/, 'arb'],

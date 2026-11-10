@@ -31,6 +31,38 @@ const stakePath = logic.parseFundingAsk('Use $100 from Solana to stake NEAR');
 check('fund-stake amount stays 100 USDC', stakePath.amount === '100' && stakePath.chain === 'sol' && stakePath.token === 'USDC');
 check('fund intent for a move', logic.matchIntent('Move 10 test USDC from Solana to NEAR') === 'fund');
 check('fund-stake still wins when staking is named', logic.matchIntent('Use $100 USDC from Solana to stake NEAR') === 'fund-stake');
+
+const exact = 'Move 1 test USDC from my Solana wallet to roundwheat3869.testnet.';
+const exactAsk = logic.parseFundingAsk(exact);
+check('wallet wording still funds', logic.matchIntent(exact) === 'fund');
+check('exact request keeps amount, token, and Solana', exactAsk.amount === '1' && exactAsk.token === 'USDC' && exactAsk.chain === 'sol' && exactAsk.amountWasNamed && exactAsk.tokenWasNamed && exactAsk.chainWasNamed, JSON.stringify(exactAsk));
+check('exact request keeps the destination', logic.parseFundingRecipient(exact) === 'roundwheat3869.testnet');
+
+const variations = [
+  ['Send 2 test USDT from my Base wallet to bob.testnet', 'fund', '2', 'USDT', 'base', 'bob.testnet'],
+  ['Please transfer 0.5 USDC from the Solana wallet to roundwheat3869.testnet', 'fund', '0.5', 'USDC', 'sol', 'roundwheat3869.testnet'],
+  ['Bridge 3 USDC using my Ethereum wallet to carol.testnet', 'fund', '3', 'USDC', 'eth', 'carol.testnet'],
+  ['Can you move 4 USDC out of my Solana wallet into dave.testnet?', 'fund', '4', 'USDC', 'sol', 'dave.testnet'],
+  ['Move 1 USDC from Solana to my NEAR account roundwheat3869.testnet', 'fund', '1', 'USDC', 'sol', 'roundwheat3869.testnet'],
+  ['Move 1 test USDC from my Solana wallet to roundwheat3869.testnet. I also use Base.', 'fund', '1', 'USDC', 'sol', 'roundwheat3869.testnet'],
+];
+for (const [sentence, intent, amount, token, chain, recipient] of variations) {
+  const parsed = logic.parseFundingAsk(sentence);
+  check(`variation intent: ${sentence}`, logic.matchIntent(sentence) === intent, logic.matchIntent(sentence));
+  check(`variation fields: ${sentence}`, parsed.amount === amount && parsed.token === token && parsed.chain === chain && parsed.amountWasNamed && parsed.chainWasNamed && logic.parseFundingRecipient(sentence) === recipient, JSON.stringify(parsed));
+}
+
+check('wallet question stays a wallet question', logic.matchIntent('Check my NEAR wallet.') === 'wallet');
+check('balance question stays a wallet question', logic.matchIntent('What is my balance?') === 'wallet');
+check('solana balance stays a wallet question', logic.matchIntent("What's my Solana wallet balance?") === 'wallet');
+check('show my wallet stays a wallet question', logic.matchIntent('Show my wallet') === 'wallet');
+check('plain stake stays staking', logic.matchIntent('Stake 0.5 NEAR') === 'stake');
+check('named validator stays staking', logic.matchIntent('Stake 0.5 NEAR with aurora') === 'stake');
+check('unstake stays staking', logic.matchIntent('Unstake 5 NEAR') === 'stake');
+check('signing sentence stays blocked', logic.matchIntent('Sign the transaction') === 'execute-blocked');
+check('send the transaction stays blocked', logic.matchIntent('Send the transaction from my Solana wallet') === 'execute-blocked');
+check('do it now stays blocked', logic.matchIntent('Do it now') === 'execute-blocked');
+check('confirm and stake stays blocked', logic.matchIntent('Confirm and stake') === 'execute-blocked');
 check('mainnet account is rejected', plan.isNearTestnetAccount('alice.near') === false && plan.isNearTestnetAccount('alice.testnet') === true);
 check('ten USDC is 10000000 base units', plan.toBaseUnits('10', 6) === '10000000');
 check('too many decimals are rejected', plan.toBaseUnits('0.0000001', 6) === null);
