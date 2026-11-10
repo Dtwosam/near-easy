@@ -441,6 +441,38 @@ export function isTerminalStatus(status: string): boolean {
   return status === 'SUCCESS' || status === 'REFUNDED' || status === 'FAILED';
 }
 
+/**
+ * Tidepool reported SUCCESS for this Solana devnet deposit on 2026-11-10.
+ * Solana finalized a transfer of 2 test USDC (mint 7pafEGXSmR35rLKNaD6inpfLYuEnRX9DyBc1c7M8r4Xr).
+ * NEAR finalized an ft_transfer of 1994800 units of usdc.tidepool-sandbox.testnet
+ * to roundwheat3869.testnet. The account balance after settlement was 1994800.
+ * The asset is Tidepool Testnet USDC. It is not wNEAR and not native NEAR.
+ * Mainnet transfers stay off. Another deposit still needs its own SUCCESS.
+ */
+export const verifiedTestnetFunding: FundingActivity = {
+  depositAddress: 'DV54oCBvdWA1FZhdFihJ776uxS2WAtaMQJfz48ckka47',
+  status: 'SUCCESS',
+  label: statusLabel('SUCCESS'),
+  when: '2026-11-10T12:54:18.428Z',
+  origin: '2 USDC · Solana devnet',
+  destination: '1.9948 USDC to roundwheat3869.testnet',
+  amountIn: '2',
+  amountOut: '1.9948',
+  refundReason: '',
+  hashes: [
+    {
+      hash: '4V3uuKiyH6fJCd2MPuzwtnv4JRspsJgS28SP2H58V3gSjykvR7Nk55sCZW2BzbUkG5BRTWCfsB6SAgXUd5S7ScK',
+      url: 'https://explorer.solana.com/tx/4V3uuKiyH6fJCd2MPuzwtnv4JRspsJgS28SP2H58V3gSjykvR7Nk55sCZW2BzbUkG5BRTWCfsB6SAgXUd5S7ScK?cluster=devnet',
+      label: 'Solana devnet deposit',
+    },
+    {
+      hash: '9BYDjZ6QMjDasc1cJS4Bydoa5QvvPZJ3xBjKsHa9do5U',
+      url: 'https://testnet.nearblocks.io/txns/9BYDjZ6QMjDasc1cJS4Bydoa5QvvPZJ3xBjKsHa9do5U',
+      label: 'NEAR testnet settlement',
+    },
+  ],
+};
+
 function text(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }

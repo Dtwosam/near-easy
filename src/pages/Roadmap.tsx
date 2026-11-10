@@ -38,7 +38,7 @@ export function RoadmapPage() {
       <div className="section-head">
         <div>
           <h1 className="page-title">Features</h1>
-          <p className="lede">Thirty parts of the product. Available means you can use it. Easy Staking is available on testnet. Cross-chain funding stays In Development. Mainnet staking stays off.</p>
+          <p className="lede">Thirty parts of the product. Available means you can use it. Easy Staking and cross-chain funding are available on testnet. Mainnet staking and mainnet transfers stay off.</p>
           <Capability ready="Available items do not broadcast" chain="Mainnet transfers stay off" />
         </div>
         <Badge tone="accent">30 features</Badge>

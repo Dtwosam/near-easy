@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { statusExamples } from '../data';
-import { readFundingActivity } from '../funding/plan';
+import { readFundingActivity, verifiedTestnetFunding } from '../funding/plan';
 import { explorerTx, readStakeActivity, verifiedTestnetStake } from '../near/stakePlan';
 import { Badge, Capability, EmptyState, useTitle } from '../ui';
 
@@ -17,7 +17,11 @@ export function ActivityPage() {
     ? savedStakes
     : [verifiedTestnetStake, ...savedStakes]
   ).slice().sort((a, b) => b.when.localeCompare(a.when));
-  const funding = readFundingActivity();
+  const savedFunding = readFundingActivity();
+  const funding = (savedFunding.some((item) => item.depositAddress === verifiedTestnetFunding.depositAddress)
+    ? savedFunding
+    : [verifiedTestnetFunding, ...savedFunding]
+  ).slice().sort((a, b) => b.when.localeCompare(a.when));
   const rows = statusExamples.filter((row) => {
     if (filter === 'All') return true;
     return row.status.toLowerCase().includes(filter.toLowerCase());
@@ -60,12 +64,12 @@ export function ActivityPage() {
                   </div>
                   <div>
                     <span>{item.origin}</span>
-                    <span>NEAR testnet</span>
+                    <span>{item.destination}</span>
                   </div>
                   <Badge tone={item.status === 'SUCCESS' ? 'accent' : item.status === 'FAILED' ? 'danger' : 'warn'}>{item.label}</Badge>
                 </div>
                 <div className="tx-detail">
-                  <p>Tidepool status {item.status}. Output {item.amountOut}. {item.refundReason ? `Refund reason ${item.refundReason}.` : 'A pending status is not success.'}</p>
+                  <p>Tidepool status {item.status}. Output {item.amountOut}. {item.destination}. {item.refundReason ? `Refund reason ${item.refundReason}.` : item.status === 'SUCCESS' ? 'Finished because Tidepool reported SUCCESS. The output is a testnet token, not native NEAR.' : 'A pending status is not success.'}</p>
                   {item.hashes.length ? item.hashes.map((hash) => (
                     <p key={`${hash.label}-${hash.hash}`}>
                       <span className="mono">{hash.hash}</span>

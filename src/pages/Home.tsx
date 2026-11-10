@@ -149,7 +149,7 @@ export function HomePage() {
             icon="arrows"
             title="Move Funds"
             body="Get a Tidepool testnet quote. Mainnet stays off."
-            badge={<Badge tone="warn">Testnet</Badge>}
+            badge={<Badge tone="accent">Available (Testnet)</Badge>}
             to="/funding"
           />
           <ActionCard

@@ -33,7 +33,7 @@ export const features: Feature[] = [
   { id: 'positions', group: 'Staking & DeFi', name: 'Staking positions', status: 'available', href: '/wallet', summary: 'Staked and pending amounts are read after you connect.' },
   { id: 'liquid', group: 'Staking & DeFi', name: 'Liquid staking comparison', status: 'soon', summary: 'Comparing stNEAR and liNEAR is not built.' },
   { id: 'defi-deposit', group: 'Staking & DeFi', name: 'DeFi walkthroughs', status: 'soon', summary: 'Directory links only. This app does not deposit for you.' },
-  { id: 'funding', group: 'Trading & Payments', name: 'Cross-chain funding', status: 'building', priority: true, href: '/funding', summary: 'Testnet quotes only. Success waits for Tidepool SUCCESS.' },
+  { id: 'funding', group: 'Trading & Payments', name: 'Cross-chain funding', status: 'available', statusText: 'Available (Testnet)', priority: true, href: '/funding', summary: 'Testnet funding is available. Your wallet approves each transfer. Success is Tidepool SUCCESS. Mainnet stays off.' },
   { id: 'send', group: 'Trading & Payments', name: 'Send NEAR', status: 'building', href: '/wallet', summary: 'The form checks the amount. It does not broadcast.' },
   { id: 'swap', group: 'Trading & Payments', name: 'Token swap', status: 'soon', summary: 'Swapping tokens here is not built.' },
   { id: 'pay-request', group: 'Trading & Payments', name: 'Payment requests', status: 'soon', summary: 'Payment requests are not built.' },
@@ -48,7 +48,7 @@ export const features: Feature[] = [
   { id: 'mode', group: 'Automation & Security', name: 'Simple and Advanced mode', status: 'available', href: '/settings', summary: 'Short or detailed explanations. Both stay on this device.' },
   { id: 'preview', group: 'Automation & Security', name: 'Transaction previews', status: 'available', href: '/funding', summary: 'Quotes show Tidepool’s output. They are not receipts.' },
   { id: 'approval', group: 'Automation & Security', name: 'Approval step', status: 'available', href: '/funding', summary: 'You confirm before a deposit address is prepared.' },
-  { id: 'activity', group: 'Automation & Security', name: 'Activity history', status: 'building', href: '/activity', summary: 'One confirmed testnet stake is listed. Later rows are saved on this device.' },
+  { id: 'activity', group: 'Automation & Security', name: 'Activity history', status: 'building', href: '/activity', summary: 'One confirmed testnet stake and one confirmed funding transfer are listed. Later rows are saved on this device.' },
   { id: 'limits', group: 'Automation & Security', name: 'Spending limits', status: 'soon', summary: 'Spending limits are not built.' },
   { id: 'notifications', group: 'Automation & Security', name: 'Notification preferences', status: 'available', href: '/settings#notifications', summary: 'On or off choices are saved here. No alert service.' },
 ];

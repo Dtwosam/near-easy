@@ -163,7 +163,11 @@ export function FundingPage() {
         if (stop) return;
         setStatus(next);
         remember(quote, next);
-        if (!next.terminal) timer = window.setTimeout(() => void tick(), 4000);
+        if (next.terminal) {
+          setOriginNote('');
+          return;
+        }
+        timer = window.setTimeout(() => void tick(), 4000);
       } catch (reason) {
         if (stop) return;
         setError(reason instanceof Error ? reason.message : 'Tidepool status could not be read.');
@@ -340,6 +344,7 @@ export function FundingPage() {
       setStatus(next);
       remember(quote, next, verifiedHash(blockchain, hash));
       setStage(3);
+      if (next.terminal) setOriginNote('');
     } catch (reason) {
       setError(reason instanceof Error
         ? `${reason.message} The test network confirmation is not a finished transfer.`
@@ -436,6 +441,7 @@ export function FundingPage() {
       setStatus(next);
       remember(liveQuote, next);
       setStage(3);
+      if (next.terminal) setOriginNote('');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Tidepool did not accept that hash.');
     } finally {
@@ -722,7 +728,7 @@ function StatusPanel({
       <p className="eyebrow">Tidepool status</p>
       <h2>{status.label}</h2>
       <p>API status: {status.status}.{status.updatedAt ? ` Updated ${status.updatedAt}.` : ''}</p>
-      {originNote ? <p>{originNote}</p> : null}
+      {originNote && !status.terminal ? <p>{originNote}</p> : null}
       {status.status === 'SUCCESS' ? <p>This success is the status Tidepool returned. It is not inferred from a hash or from the origin transaction alone.</p> : <p>An origin transaction, even after the test network confirms it, is not a finished transfer.</p>}
       {status.amountOutFormatted ? <p>Settled output in the status: {status.amountOutFormatted}.</p> : null}
       {status.refundReason ? <p>Refund reason: {status.refundReason}.</p> : null}

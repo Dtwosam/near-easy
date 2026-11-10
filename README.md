@@ -4,7 +4,7 @@ NEAR Easy is a plain-English guide to NEAR. It answers questions with Gemini, re
 
 You approve every signature in your own wallet. The app does not ask for a seed phrase or a private key, and it does not sign by itself. Mainnet transfers and real-money transactions stay off.
 
-The public app is [https://near-easy.vercel.app](https://near-easy.vercel.app). The source is in this repository. No end-to-end funding transfer or staking transaction has been confirmed from this app. Do not describe a transaction as successful unless NEAR or Tidepool returned that result.
+The public app is [https://near-easy.vercel.app](https://near-easy.vercel.app). The source is in this repository. One Solana devnet to NEAR testnet funding transfer and one NEAR testnet stake are confirmed. Do not describe another transaction as successful unless NEAR or Tidepool returned that result.
 
 ## Features
 
@@ -14,10 +14,10 @@ Nine pages share one Premium Dark Neon interface: Home, Assistant, Wallet, Fundi
 | --- | --- | --- |
 | Assistant | Gemini 3.5 Flash-Lite answers from the server. The chat keeps the conversation, reads verified NEAR figures, and opens wallet, funding, staking, or the directory. | The chat cannot sign, quote a received amount, or send funds. |
 | NEAR wallet | HOT Connect opens a wallet you choose. The account and NEAR balance are read after you approve. | Sending NEAR is a checked preview. It does not broadcast. |
-| Funding | Tidepool testnet quotes cover the networks Tidepool lists. Phantom and other Solana wallets can approve a Solana devnet transfer. An EVM wallet can approve Base Sepolia, chain id 84532. A NEAR testnet wallet can approve a token deposit. The origin transaction is checked before Tidepool is told. | Success is shown only after Tidepool reports `SUCCESS`. That result has not been observed. Other chains show the deposit for your own wallet. |
+| Funding | Tidepool testnet quotes cover the networks Tidepool lists. Phantom and other Solana wallets can approve a Solana devnet transfer. An EVM wallet can approve Base Sepolia, chain id 84532. A NEAR testnet wallet can approve a token deposit. The origin transaction is checked before Tidepool is told. One transfer is confirmed: 2 test USDC on Solana devnet (`4V3uuKiyH6fJCd2MPuzwtnv4JRspsJgS28SP2H58V3gSjykvR7Nk55sCZW2BzbUkG5BRTWCfsB6SAgXUd5S7ScK`) settled as 1.9948 Tidepool Testnet USDC (`usdc.tidepool-sandbox.testnet`) to `roundwheat3869.testnet`. NEAR finalized `9BYDjZ6QMjDasc1cJS4Bydoa5QvvPZJ3xBjKsHa9do5U`. Tidepool status was `SUCCESS`. | Success is shown only after Tidepool reports `SUCCESS` for that deposit. Base Sepolia `SUCCESS` has not been observed. Other chains show the deposit for your own wallet. Mainnet stays off. The settled token is not wNEAR and not native NEAR. |
 | Staking | On testnet, a connected wallet can approve `deposit_and_stake`. Commission is read from the pool. Success is shown only after NEAR finalizes the transaction and the staked balance increases. One testnet stake is confirmed: `9mjZw2rENHfxS2frJW7c2Ds2wzbfDsvD8Fzc1M6rGMPV`, 0.02 NEAR from `roundwheat3869.testnet` to `pennyvalidators.pool.f863973.m0`. NEAR marked it final, and the pool’s total staked balance rose by that deposit. | Mainnet staking is off. Unstaking is explained and not built. |
 | Directory and roadmap | Search, filters, and 30 labelled features. | Coming Soon items open an explanation. They do not run. |
-| Activity | Confirmed stakes and Tidepool statuses saved on this device. Example rows stay on a separate tab. | There is no multi-chain history service. |
+| Activity | Confirmed stakes and Tidepool statuses saved on this device. The Activity page also lists the confirmed testnet stake and the confirmed Tidepool `SUCCESS` when this device has not saved them. Example rows stay on a separate tab. | There is no multi-chain history service. The homepage and wallet page show saved rows only. |
 
 Tidepool test wNEAR (`wnear.tidepool-sandbox.testnet`) cannot be staked as native NEAR. The contract has no `near_withdraw` method, it is not `wrap.testnet`, and its account balance does not back the token supply. Funding and staking stay separate.
 
@@ -40,7 +40,7 @@ Wallet permissions:
 - Solana uses the Wallet Standard, including Phantom. The app asks the wallet to sign a transaction built for Solana devnet, then submits the signed bytes only to `https://api.devnet.solana.com`.
 - EVM wallets use EIP-6963 and EIP-1193. The app switches only to Base Sepolia (`0x14a34`, chain id 84532) and sends the quoted test transfer. Receipts are read from `https://sepolia.base.org`.
 
-Saved activity lives in `localStorage` on the device. A stake row is written only after NEAR confirmation. A funding row stores the status string Tidepool returned. The homepage and wallet page show those rows with that status. They do not invent a success.
+Saved activity lives in `localStorage` on the device. A stake row is written only after NEAR confirmation. A funding row stores the status string Tidepool returned. The homepage and wallet page show those saved rows with that status. They do not invent a success. The Activity page lists one confirmed testnet stake and one confirmed Tidepool `SUCCESS` when this device has not saved those rows.
 
 `npm start` serves a local production build with `vite preview` after `npm run build`. That process includes the assistant and funding routes. A host that only serves the files in `dist/` cannot run those routes. The public deployment uses the Vercel functions above.
 
@@ -81,7 +81,7 @@ HOST=0.0.0.0 PORT=4173 npm start
 - Mainnet staking is disabled in code. Solana mainnet, Base mainnet, and Ethereum mainnet chain ids are refused. Real-money transfers are off.
 - Tidepool is a community testnet. It is not affiliated with NEAR. Test tokens have no value.
 - Test wNEAR cannot be converted into native NEAR here, and it cannot be staked from the funding page.
-- An end-to-end Tidepool deposit has not been broadcast from this app, so Tidepool `SUCCESS` has not been observed. A confirmed origin transaction is not a finished transfer.
+- One Tidepool `SUCCESS` is confirmed: deposit address `DV54oCBvdWA1FZhdFihJ776uxS2WAtaMQJfz48ckka47`, 2 test USDC in, 1.9948 Tidepool Testnet USDC out to `roundwheat3869.testnet`. A confirmed origin transaction is not a finished transfer. Another deposit is finished only when Tidepool returns `SUCCESS` for it. Mainnet transfers stay off.
 - One testnet stake is confirmed. The hash is `9mjZw2rENHfxS2frJW7c2Ds2wzbfDsvD8Fzc1M6rGMPV`. Mainnet staking stays disabled.
 - Send, unstake, swap, recurring transfers, fiat purchase, and spending limits are not built.
 - The Tidepool faucet does not drip native SOL or ETH. Those fee tokens must come from a testnet faucet you already trust.
@@ -125,7 +125,7 @@ Do this yourself. The automated checks cannot approve a wallet.
 3. Choose Solana devnet and USDC. Enter a small amount, a `name.testnet` recipient, and your Solana devnet address as the refund address. Use a mainnet address for neither.
 4. Choose Get testnet quote. Read the output, value gap, and expiration from the response. The page must not say the transfer succeeded.
 5. Check the acknowledgement and choose Prepare deposit. Copy the deposit address from the page. Connect the Solana wallet in the Solana devnet wallet section, then choose Approve test transfer and approve the prompt.
-6. Wait until the page says Solana devnet confirmed the deposit transaction and that Tidepool has not finished the transfer. Only then should the app submit the hash to Tidepool.
+6. After Solana devnet confirms the deposit, the page says that confirmation is in and that Tidepool has not finished the transfer. That note stays while the app submits the hash and while the status is not terminal. It is removed when Tidepool returns `SUCCESS`, `REFUNDED`, or `FAILED`.
 7. Stay on the status step until Tidepool returns a terminal status. Treat the transfer as finished only when the status is exactly `SUCCESS`. `PENDING_DEPOSIT`, `KNOWN_DEPOSIT_TX`, `PROCESSING`, a confirmed origin hash, `REFUNDED`, and `FAILED` are not success.
 8. Repeat the same steps for Base Sepolia with an EVM wallet. The wallet must switch to chain id 84532. Have a little Base Sepolia ETH for gas. The faucet does not drip ETH. Refuse any prompt that asks for Ethereum mainnet, Base mainnet, or chain id 8453 or 1.
 9. On the Activity page, the new row must show the Tidepool status string. The homepage may show the same row. A pending row must not be labelled as a completed transfer.
@@ -149,12 +149,12 @@ This is a separate test. Do not use test wNEAR as the stake.
 
 These items cannot be completed in an automated browser that has no wallet extension:
 
-1. Approve a Solana devnet signature in Phantom or another compatible wallet, then wait for Tidepool `SUCCESS`.
-2. Approve a Base Sepolia switch and transfer in an EVM wallet, then wait for Tidepool `SUCCESS`.
+1. One Solana devnet transfer already returned Tidepool `SUCCESS`: origin `4V3uuKiyH6fJCd2MPuzwtnv4JRspsJgS28SP2H58V3gSjykvR7Nk55sCZW2BzbUkG5BRTWCfsB6SAgXUd5S7ScK`, destination `9BYDjZ6QMjDasc1cJS4Bydoa5QvvPZJ3xBjKsHa9do5U`, 2 test USDC in and 1.9948 Tidepool Testnet USDC out. Another Solana transfer still needs a wallet approval and its own `SUCCESS`.
+2. Approve a Base Sepolia switch and transfer in an EVM wallet, then wait for Tidepool `SUCCESS`. That result has not been observed.
 3. One NEAR testnet `deposit_and_stake` is already confirmed: `9mjZw2rENHfxS2frJW7c2Ds2wzbfDsvD8Fzc1M6rGMPV`. Another stake still needs a wallet approval.
 4. Optionally approve a NEAR testnet `ft_transfer_call` when the funding source is NEAR testnet.
 
-Easy Staking is available on testnet. Cross-chain funding stays In Development until Tidepool returns `SUCCESS`. Do not describe a funding transfer as complete.
+Easy Staking and cross-chain funding are available on testnet. One funding transfer returned Tidepool `SUCCESS`. Another transfer is complete only when Tidepool returns `SUCCESS` for that deposit. Mainnet staking and mainnet transfers stay off.
 
 ## Hackathon demonstration
 
