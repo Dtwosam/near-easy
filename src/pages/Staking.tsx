@@ -283,7 +283,7 @@ export function StakingPage() {
               {enabled ? (
                 <p>Your wallet will ask you to sign. This page cannot sign, and it does not ask for a seed phrase or a private key.</p>
               ) : (
-                <p>This preview is complete. Mainnet staking stays off until a testnet stake from this app is confirmed on NEAR.</p>
+                <p>This preview is complete. Mainnet staking is not enabled.</p>
               )}
               <label className="check">
                 <input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} disabled={!enabled || sending} />

@@ -10,7 +10,7 @@ export const STAKE_GAS = '300000000000000';
  */
 export const FEE_RESERVE_YOCTO = 50_000_000_000_000_000_000_000n;
 
-/** Stays false until a testnet stake has been confirmed on chain from this app. */
+/** A confirmed testnet stake does not enable mainnet. */
 export const MAINNET_STAKING_ENABLED = false;
 
 const TX_HASH = /^[1-9A-HJ-NP-Za-km-z]{32,64}$/;
@@ -23,6 +23,21 @@ export type StakeActivity = {
   amount: string;
   commission: string;
   when: string;
+};
+
+/**
+ * NEAR testnet finalized this deposit_and_stake on 2026-11-10.
+ * Receipt logs show the pool total stake rose by the 0.02 NEAR deposit.
+ * The account stake at the pool is the same figure those logs recorded.
+ */
+export const verifiedTestnetStake: StakeActivity = {
+  hash: '9mjZw2rENHfxS2frJW7c2Ds2wzbfDsvD8Fzc1M6rGMPV',
+  accountId: 'roundwheat3869.testnet',
+  network: 'testnet',
+  poolId: 'pennyvalidators.pool.f863973.m0',
+  amount: '0.02',
+  commission: '4%',
+  when: '2026-11-10T12:01:24.537Z',
 };
 
 export function stakingEnabled(network: 'mainnet' | 'testnet'): boolean {

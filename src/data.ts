@@ -5,6 +5,8 @@ export type Feature = {
   group: string;
   name: string;
   status: Status;
+  /** Shown in place of the generic status when a feature is limited to testnet. */
+  statusText?: string;
   priority?: boolean;
   summary: string;
   href?: string;
@@ -25,7 +27,7 @@ export const features: Feature[] = [
   { id: 'glossary', group: 'Wallet & Onboarding', name: 'Glossary', status: 'available', href: '/settings#help', summary: 'Short definitions for accounts, gas, and staking.' },
   { id: 'receive', group: 'Wallet & Onboarding', name: 'Receive address', status: 'available', href: '/wallet', summary: 'Copy the signed-in account. Samples stay labelled.' },
   { id: 'multi-wallet', group: 'Wallet & Onboarding', name: 'Multiple wallets', status: 'soon', summary: 'A saved list of several wallets is not built.' },
-  { id: 'easy-staking', group: 'Staking & DeFi', name: 'Easy Staking', status: 'building', priority: true, href: '/staking', summary: 'Testnet stake needs your approval. Mainnet staking is off.' },
+  { id: 'easy-staking', group: 'Staking & DeFi', name: 'Easy Staking', status: 'available', statusText: 'Available (Testnet)', priority: true, href: '/staking', summary: 'Testnet staking is available. Your wallet approves each stake. Mainnet staking is off.' },
   { id: 'unstake', group: 'Staking & DeFi', name: 'Unstake and withdraw', status: 'building', href: '/staking#unstake', summary: 'The wait is explained. Unstake is not built.' },
   { id: 'validators', group: 'Staking & DeFi', name: 'Validator references', status: 'available', href: '/staking', summary: 'Pools list the commission read from each contract.' },
   { id: 'positions', group: 'Staking & DeFi', name: 'Staking positions', status: 'available', href: '/wallet', summary: 'Staked and pending amounts are read after you connect.' },
@@ -46,7 +48,7 @@ export const features: Feature[] = [
   { id: 'mode', group: 'Automation & Security', name: 'Simple and Advanced mode', status: 'available', href: '/settings', summary: 'Short or detailed explanations. Both stay on this device.' },
   { id: 'preview', group: 'Automation & Security', name: 'Transaction previews', status: 'available', href: '/funding', summary: 'Quotes show Tidepool’s output. They are not receipts.' },
   { id: 'approval', group: 'Automation & Security', name: 'Approval step', status: 'available', href: '/funding', summary: 'You confirm before a deposit address is prepared.' },
-  { id: 'activity', group: 'Automation & Security', name: 'Activity history', status: 'building', href: '/activity', summary: 'Saved stakes and funding statuses from this device.' },
+  { id: 'activity', group: 'Automation & Security', name: 'Activity history', status: 'building', href: '/activity', summary: 'One confirmed testnet stake is listed. Later rows are saved on this device.' },
   { id: 'limits', group: 'Automation & Security', name: 'Spending limits', status: 'soon', summary: 'Spending limits are not built.' },
   { id: 'notifications', group: 'Automation & Security', name: 'Notification preferences', status: 'available', href: '/settings#notifications', summary: 'On or off choices are saved here. No alert service.' },
 ];

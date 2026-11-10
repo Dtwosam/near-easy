@@ -24,7 +24,7 @@ export function RoadmapPage() {
   const requested = params.get('status');
   const active: 'all' | Status = requested === 'available' || requested === 'building' || requested === 'soon' ? requested : 'all';
   const [soonFeature, setSoonFeature] = useState<Feature | null>(null);
-  const priorities = features.filter((feature) => feature.priority);
+  const priorities = features.filter((feature) => feature.priority && feature.status === 'building');
 
   function setFilter(id: 'all' | Status) {
     const next = new URLSearchParams(params);
@@ -38,27 +38,29 @@ export function RoadmapPage() {
       <div className="section-head">
         <div>
           <h1 className="page-title">Features</h1>
-          <p className="lede">Thirty parts of the product. Available means you can use it. Funding and staking stay In Development until a network confirms a result.</p>
+          <p className="lede">Thirty parts of the product. Available means you can use it. Easy Staking is available on testnet. Cross-chain funding stays In Development. Mainnet staking stays off.</p>
           <Capability ready="Available items do not broadcast" chain="Mainnet transfers stay off" />
         </div>
         <Badge tone="accent">30 features</Badge>
       </div>
 
-      <section className="priority-band">
-        <h2>In progress</h2>
-        <div className="qa-grid">
-          {priorities.map((feature) => (
-            <Link key={feature.id} to={feature.href ?? '/roadmap'} className="qa">
-              <Badge tone="warn">In Development</Badge>
-              <strong>{feature.name}</strong>
-              <span className="qa-copy">{feature.summary}</span>
-              <em className="qa-arrow" aria-hidden="true">
-                <Icon name="arrow" size={16} />
-              </em>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {priorities.length ? (
+        <section className="priority-band">
+          <h2>In progress</h2>
+          <div className="qa-grid">
+            {priorities.map((feature) => (
+              <Link key={feature.id} to={feature.href ?? '/roadmap'} className="qa">
+                <Badge tone="warn">{feature.statusText ?? statusLabel[feature.status]}</Badge>
+                <strong>{feature.name}</strong>
+                <span className="qa-copy">{feature.summary}</span>
+                <em className="qa-arrow" aria-hidden="true">
+                  <Icon name="arrow" size={16} />
+                </em>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="pills" role="tablist" aria-label="Feature status">
         {filters.map((filter) => {
@@ -81,7 +83,7 @@ export function RoadmapPage() {
               {items.map((feature) => {
                 const body = (
                   <>
-                    <Badge tone={tone(feature.status)}>{statusLabel[feature.status]}</Badge>
+                    <Badge tone={tone(feature.status)}>{feature.statusText ?? statusLabel[feature.status]}</Badge>
                     <strong>{feature.name}</strong>
                     <span className="qa-copy">{feature.summary}</span>
                     <span className="card-action">{feature.status === 'soon' || !feature.href ? 'Details' : 'Open'}</span>

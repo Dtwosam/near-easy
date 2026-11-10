@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { statusExamples } from '../data';
 import { readFundingActivity } from '../funding/plan';
-import { explorerTx, readStakeActivity } from '../near/stakePlan';
+import { explorerTx, readStakeActivity, verifiedTestnetStake } from '../near/stakePlan';
 import { Badge, Capability, EmptyState, useTitle } from '../ui';
 
 const filters = ['All', 'Verified', 'Failed', 'Pending'] as const;
@@ -12,7 +12,11 @@ export function ActivityPage() {
   const [filter, setFilter] = useState<(typeof filters)[number]>('All');
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const stakes = readStakeActivity();
+  const savedStakes = readStakeActivity();
+  const stakes = (savedStakes.some((item) => item.hash === verifiedTestnetStake.hash)
+    ? savedStakes
+    : [verifiedTestnetStake, ...savedStakes]
+  ).slice().sort((a, b) => b.when.localeCompare(a.when));
   const funding = readFundingActivity();
   const rows = statusExamples.filter((row) => {
     if (filter === 'All') return true;
@@ -85,7 +89,7 @@ export function ActivityPage() {
                   <Badge tone="accent">Confirmed</Badge>
                 </div>
                 <div className="tx-detail">
-                  <p>Delegated to {stake.poolId}. Commission at approval was {stake.commission}.</p>
+                  <p>Delegated from {stake.accountId} to {stake.poolId}. Pool commission {stake.commission}.</p>
                   <p className="mono">{stake.hash}</p>
                   <a href={explorerTx(stake.network, stake.hash)} target="_blank" rel="noreferrer">View on the explorer</a>
                 </div>

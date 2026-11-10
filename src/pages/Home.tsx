@@ -156,7 +156,7 @@ export function HomePage() {
             icon="layers"
             title="Easy Staking"
             body="Review a testnet stake before your wallet approves."
-            badge={<Badge tone="warn">Testnet</Badge>}
+            badge={<Badge tone="accent">Available (Testnet)</Badge>}
             to="/staking"
           />
         </div>

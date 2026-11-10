@@ -15,7 +15,7 @@ Nine pages share one Premium Dark Neon interface: Home, Assistant, Wallet, Fundi
 | Assistant | Gemini 3.5 Flash-Lite answers from the server. The chat keeps the conversation, reads verified NEAR figures, and opens wallet, funding, staking, or the directory. | The chat cannot sign, quote a received amount, or send funds. |
 | NEAR wallet | HOT Connect opens a wallet you choose. The account and NEAR balance are read after you approve. | Sending NEAR is a checked preview. It does not broadcast. |
 | Funding | Tidepool testnet quotes cover the networks Tidepool lists. Phantom and other Solana wallets can approve a Solana devnet transfer. An EVM wallet can approve Base Sepolia, chain id 84532. A NEAR testnet wallet can approve a token deposit. The origin transaction is checked before Tidepool is told. | Success is shown only after Tidepool reports `SUCCESS`. That result has not been observed. Other chains show the deposit for your own wallet. |
-| Staking | On testnet, a connected wallet can approve `deposit_and_stake`. Commission is read from the pool. Success is shown only after NEAR finalizes the transaction and the staked balance increases. | Mainnet staking is off. Unstaking is explained and not built. No testnet stake from this app has been confirmed yet. |
+| Staking | On testnet, a connected wallet can approve `deposit_and_stake`. Commission is read from the pool. Success is shown only after NEAR finalizes the transaction and the staked balance increases. One testnet stake is confirmed: `9mjZw2rENHfxS2frJW7c2Ds2wzbfDsvD8Fzc1M6rGMPV`, 0.02 NEAR from `roundwheat3869.testnet` to `pennyvalidators.pool.f863973.m0`. NEAR marked it final, and the pool’s total staked balance rose by that deposit. | Mainnet staking is off. Unstaking is explained and not built. |
 | Directory and roadmap | Search, filters, and 30 labelled features. | Coming Soon items open an explanation. They do not run. |
 | Activity | Confirmed stakes and Tidepool statuses saved on this device. Example rows stay on a separate tab. | There is no multi-chain history service. |
 
@@ -82,7 +82,7 @@ HOST=0.0.0.0 PORT=4173 npm start
 - Tidepool is a community testnet. It is not affiliated with NEAR. Test tokens have no value.
 - Test wNEAR cannot be converted into native NEAR here, and it cannot be staked from the funding page.
 - An end-to-end Tidepool deposit has not been broadcast from this app, so Tidepool `SUCCESS` has not been observed. A confirmed origin transaction is not a finished transfer.
-- A complete HOT-signed testnet stake has not been confirmed from this app.
+- One testnet stake is confirmed. The hash is `9mjZw2rENHfxS2frJW7c2Ds2wzbfDsvD8Fzc1M6rGMPV`. Mainnet staking stays disabled.
 - Send, unstake, swap, recurring transfers, fiat purchase, and spending limits are not built.
 - The Tidepool faucet does not drip native SOL or ETH. Those fee tokens must come from a testnet faucet you already trust.
 - The assistant does not receive your account id, wallet app name, or staking pool ids. It may receive aggregate figures marked live, unknown, loading, or sample.
@@ -143,7 +143,7 @@ This is a separate test. Do not use test wNEAR as the stake.
 5. Enter an amount at or below the available-to-stake figure. Choose Review stake, read `deposit_and_stake`, the pool account, the fee reserve, and the status Not submitted.
 6. Continue, check the acknowledgement, and choose Approve in wallet. Approve the prompt in the NEAR wallet. If you reject it, the page should stay unsigned and show a declined state.
 7. Wait for the result. A success screen is valid only when it shows the transaction hash, an explorer link on `testnet.nearblocks.io`, and the staked balance read back from the pool. Until that screen appears, the stake is not confirmed.
-8. On a mainnet wallet, the last step must say mainnet staking is off and offer Use testnet. There must be no approve button for that preview. Do not enable mainnet to finish the demo.
+8. On a mainnet wallet, the last step must say mainnet staking is not enabled and offer Use testnet. There must be no approve button for that preview. Do not enable mainnet.
 
 ## Manual steps still required
 
@@ -151,10 +151,10 @@ These items cannot be completed in an automated browser that has no wallet exten
 
 1. Approve a Solana devnet signature in Phantom or another compatible wallet, then wait for Tidepool `SUCCESS`.
 2. Approve a Base Sepolia switch and transfer in an EVM wallet, then wait for Tidepool `SUCCESS`.
-3. Approve a NEAR testnet `deposit_and_stake` in a HOT Connect wallet, then confirm the transaction on NEAR testnet.
+3. One NEAR testnet `deposit_and_stake` is already confirmed: `9mjZw2rENHfxS2frJW7c2Ds2wzbfDsvD8Fzc1M6rGMPV`. Another stake still needs a wallet approval.
 4. Optionally approve a NEAR testnet `ft_transfer_call` when the funding source is NEAR testnet.
 
-Until those approvals happen, Cross-chain funding and Easy Staking stay In Development. Do not submit the project as having completed a transfer or a stake.
+Easy Staking is available on testnet. Cross-chain funding stays In Development until Tidepool returns `SUCCESS`. Do not describe a funding transfer as complete.
 
 ## Hackathon demonstration
 
