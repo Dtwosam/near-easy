@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { loadFundingCatalog, loadFundingStatus, requestFundingQuote, submitFundingDeposit } from '../funding/client';
 import { explainFundingError, requestFundingSignature } from '../funding/deposit';
 import { approveBaseDeposit } from '../funding/evmWallet';
@@ -37,26 +36,6 @@ import { nearLine } from '../near/present';
 import { useStore } from '../store';
 import { Badge, Button, Field, TxTable } from '../ui';
 
-function stakingPath(prompt: string): string {
-  const amount = parseStakeAsk(prompt);
-  const validator = parseValidatorAsk(prompt);
-  const params = new URLSearchParams();
-  if (amount) params.set('amount', amount);
-  if (validator?.includes('.')) params.set('validator', validator);
-  const query = params.toString();
-  return query ? `/staking?${query}` : '/staking';
-}
-
-function fundingPath(prompt: string): string {
-  const parsed = parseFundingAsk(prompt);
-  const params = new URLSearchParams({ chain: parsed.chain, token: parsed.token });
-  if (parsed.amountWasNamed) params.set('amount', parsed.amount);
-  const recipient = parseFundingRecipient(prompt);
-  if (recipient) params.set('to', recipient);
-  if (parsed.tokenWasNamed) params.set('dest', parsed.token);
-  return `/funding?${params.toString()}`;
-}
-
 type StakeOutcome =
   | { kind: 'success'; hash: string; explorer: string; staked: string }
   | { kind: 'rejected' | 'failed' | 'network' | 'unconfirmed'; hash: string | null; message: string };
@@ -79,14 +58,13 @@ function ValidatorPicker({
   return (
     <div id="chat-validator-picker">
       <h2>Which validator do you want to use?</h2>
-      <p>These pools were read from NEAR testnet. Commission and pool stake come from each pool contract. A reward rate is not estimated. Nothing is selected until you choose.</p>
+      <p className="hint">Nothing is selected until you choose. Commission is read from the pool.</p>
       <div className="validator-options">
         {visible.map((item) => (
           <button key={item.id} type="button" className="validator-option" data-pool-id={item.id} onClick={() => onSelect(item)}>
             <strong>{item.label}</strong>
             <span>Commission {item.commission}</span>
-            <span className="hint">Fee fraction {item.fraction}, read from the pool.</span>
-            <span className="hint">Pool stake {item.poolStake}.</span>
+            <span className="hint">Fee fraction {item.fraction} · Pool stake {item.poolStake}</span>
             <span className="hint">{item.staking === 'open' ? 'Staking was open when this pool was read.' : 'Pause status was unread.'}</span>
             <span className="validator-id">{item.id}</span>
           </button>
@@ -108,13 +86,15 @@ function ValidatorPicker({
           {hidden > 0 ? 'Public testnet validator list' : 'Other validators'}
         </a>
       </div>
-      {moreOpen && hidden > 0 ? (
-        <p className="hint">Showing {pools.length} pools with a readable commission. The public list has more.</p>
-      ) : hidden > 0 ? (
-        <p className="hint">{hidden} more readable pools stay hidden until you choose Other validators.</p>
-      ) : (
-        <p className="hint">These are the pools whose commission could be read. Other validators opens the public testnet list.</p>
-      )}
+      <details className="help">
+        <summary>How these pools were read</summary>
+        <div className="help-body">
+          <p>These pools were read from NEAR testnet. Commission, fee fraction, and pool stake come from each pool contract. A reward rate is not estimated. Pause status appears only when the pool returned it.</p>
+          {moreOpen && hidden > 0 ? <p>Showing {pools.length} pools with a readable commission. The public list has more.</p> : null}
+          {!moreOpen && hidden > 0 ? <p>{hidden} more readable pools stay hidden until you choose Other validators.</p> : null}
+          {hidden === 0 ? <p>These are the pools whose commission could be read. Other validators opens the public testnet list.</p> : null}
+        </div>
+      </details>
     </div>
   );
 }
@@ -233,115 +213,147 @@ export function ChatStake({ prompt }: { prompt: string }) {
     && !missingPreference;
   const askForValidator = enabled && !preference && !pool && !loadingPools && !poolsError && pools.length > 0 && result?.kind !== 'success';
 
+  const stakeStatus = result?.kind === 'success' ? 'Confirmed on NEAR' : 'Not submitted';
+  const stakeRows = enabled && pool && !missingPreference && requested != null
+    ? [
+        { label: 'Amount', value: `${amount} NEAR` },
+        { label: 'Validator', value: pool.label, hint: preference ? 'This matches the validator you named.' : 'You selected this validator.' },
+        { label: 'Commission', value: `${pool.commission} (${pool.fraction}), read from the pool` },
+        { label: 'Network', value: 'NEAR testnet' },
+        { label: 'Account', value: store.accountId ?? 'Not connected' },
+        { label: 'Available', value: store.balance.kind === 'live' ? nearLine(store.balance, 'available') : 'Unknown' },
+        { label: 'Most that can be staked', value: stakeable == null ? 'Unknown until the balance is read' : `${formatNear(stakeable)} NEAR` },
+        { label: 'Kept for the fee', value: `${formatNear(FEE_RESERVE_YOCTO)} NEAR`, hint: 'Left liquid so the account can pay gas. Storage rent is already excluded.' },
+        { label: 'NEAR Easy fee', value: 'None' },
+        { label: 'Status', value: stakeStatus },
+      ]
+    : [];
+  const stakeDetailRows = enabled && pool && !missingPreference && requested != null
+    ? [
+        { label: 'Pool account', value: pool.id },
+        { label: 'Pool stake', value: pool.poolStake },
+        { label: 'Staking', value: pool.staking === 'open' ? 'Open when the pool was read' : 'Pause status was unread' },
+        { label: 'Attached gas', value: '300 TGas. Unused gas returns to the account.' },
+        { label: 'Action', value: 'deposit_and_stake' },
+      ]
+    : [];
+
   return (
     <div className="flow" id="chat-stake">
-      <p className="eyebrow">
-        <Badge tone="accent">Available (Testnet)</Badge> Stake preview
-      </p>
-      <p>
-        {!enabled
-          ? 'The reply above does not set the amount, the validator, or the fee. Mainnet staking is not enabled.'
-          : pool
-            ? 'This preview uses the connected wallet and the pool contract. The reply above does not set the amount, the validator, or the fee. Nothing is signed until you approve it.'
-            : missingPreference
-              ? 'The reply above does not replace the validator you named. Nothing was prepared.'
-              : 'The reply above does not set the amount, the validator, or the fee. Choose a validator before a preview is prepared. Nothing is signed until you approve it.'}
-      </p>
-      {!enabled ? <p className="warn-box">Mainnet staking is not enabled. Nothing was submitted.</p> : null}
-      {enabled && store.balance.kind === 'sample' ? <p className="warn-box">The sample layout is not a wallet. Connect a testnet account before staking.</p> : null}
-      {enabled && store.balance.kind === 'empty' ? <p>Connect a NEAR testnet wallet so the available balance can be checked.</p> : null}
-      {enabled && store.balance.kind === 'live' && store.balance.loading && !store.balance.available ? <p className="loading-line" role="status">Reading the available balance…</p> : null}
-      {enabled && store.balance.kind === 'live' && !store.balance.loading && !store.balance.availableYocto ? <p className="warn-box">The available balance could not be read. Nothing was prepared.</p> : null}
-      {!promptAmount ? (
-        <Field id="chat-stake-amount" label="Stake amount (NEAR)" hint="The preview uses this amount. Nothing is signed until you approve it.">
-          <input
-            id="chat-stake-amount"
-            inputMode="decimal"
-            value={typedAmount}
-            onChange={(event) => {
-              setTypedAmount(event.target.value);
-              setChecked(false);
-            }}
-          />
-        </Field>
-      ) : null}
-      {loadingPools ? <p className="loading-line" role="status">Reading validator commissions…</p> : null}
-      {poolsError ? <p className="warn-box" role="alert">{poolsError}</p> : null}
-      {missingPreference ? <p className="warn-box">No readable pool matched {preference}. Nothing was prepared.</p> : null}
-      {askForValidator ? (
-        <ValidatorPicker
-          pools={pools}
-          moreOpen={moreOpen}
-          onMore={() => setMoreOpen((open) => !open)}
-          onSelect={selectPool}
-        />
-      ) : null}
-      {enabled && pool && !missingPreference && requested == null ? <p className="hint">Enter an amount to prepare the preview.</p> : null}
-      {enabled && pool && !missingPreference && requested != null ? (
-        <TxTable
-          rows={[
-            { label: 'Amount', value: `${amount} NEAR` },
-            { label: 'Validator', value: pool.label, hint: preference ? 'This matches the validator you named.' : 'You selected this validator.' },
-            { label: 'Pool account', value: pool.id },
-            { label: 'Commission', value: `${pool.commission} (${pool.fraction}), read from the pool` },
-            { label: 'Pool stake', value: pool.poolStake },
-            { label: 'Staking', value: pool.staking === 'open' ? 'Open when the pool was read' : 'Pause status was unread' },
-            { label: 'Network', value: 'NEAR testnet' },
-            { label: 'Account', value: store.accountId ?? 'Not connected' },
-            { label: 'Available', value: store.balance.kind === 'live' ? nearLine(store.balance, 'available') : 'Unknown' },
-            { label: 'Most that can be staked', value: stakeable == null ? 'Unknown until the balance is read' : `${formatNear(stakeable)} NEAR` },
-            { label: 'Kept for the fee', value: `${formatNear(FEE_RESERVE_YOCTO)} NEAR`, hint: 'Left liquid so the account can pay gas. Storage rent is already excluded.' },
-            { label: 'Attached gas', value: '300 TGas. Unused gas returns to the account.' },
-            { label: 'NEAR Easy fee', value: 'None' },
-            { label: 'Action', value: 'deposit_and_stake' },
-            { label: 'Status', value: result?.kind === 'success' ? 'Confirmed on NEAR' : 'Not submitted' },
-          ]}
-        />
-      ) : null}
-      {tooLarge ? (
-        <p className="warn-box" role="alert">
-          That leaves less than {formatNear(FEE_RESERVE_YOCTO)} NEAR for the transaction fee. The most you can stake is {stakeable == null ? 'unknown' : `${formatNear(stakeable)} NEAR`}. Nothing was submitted.
+      <div className="flow-body">
+        <p className="eyebrow">
+          <Badge tone="accent">Available (Testnet)</Badge> Stake preview
         </p>
-      ) : null}
-      {result?.kind === 'success' ? (
-        <div id="chat-stake-result">
-          <h2>Stake confirmed</h2>
-          <p>{amount} NEAR was delegated to {pool?.label ?? 'the pool'}. The pool now reports {result.staked} NEAR staked for this account. Activity includes this stake.</p>
-          <p className="mono">{result.hash}</p>
-          <a className="btn btn-secondary" href={result.explorer} target="_blank" rel="noreferrer">View on the explorer</a>
-        </div>
-      ) : null}
-      {result && result.kind !== 'success' ? (
-        <div id="chat-stake-result">
-          <h2>{result.kind === 'rejected' ? 'Stake declined' : result.kind === 'failed' ? 'Stake failed' : 'Stake not confirmed'}</h2>
-          <p>{result.message}</p>
-          {result.hash ? <p className="mono">{result.hash}</p> : null}
-        </div>
-      ) : null}
-      {sending ? <p className="loading-line" role="status">Waiting for your wallet, then for NEAR to confirm the transaction…</p> : null}
-      {!result || result.kind !== 'success' ? (
-        <>
-          {ready ? (
-            <label className="check">
-              <input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} disabled={sending} />
-              <span>I want to stake this NEAR. My wallet must approve it.</span>
-            </label>
-          ) : null}
-          <div className="inline-actions">
-            {enabled && store.balance.kind === 'empty' ? <Button variant="primary" onClick={store.openConnect}>Connect a NEAR wallet</Button> : null}
-            {!enabled ? <Button variant="primary" onClick={() => void store.setNetwork('testnet')}>Use testnet</Button> : null}
-            {enabled && pool && !preference ? (
-              <Button onClick={() => { setPool(null); setChecked(false); setResult(null); }}>Choose a different validator</Button>
-            ) : null}
-            {ready ? (
-              <Button id="chat-stake-approve" variant="primary" disabled={!checked || sending} onClick={() => void approve()}>
-                Approve in wallet
-              </Button>
-            ) : null}
-            <Link className="btn btn-secondary" to={stakingPath(prompt)}>Open Easy Staking</Link>
+        <p>{enabled ? 'Nothing is signed until you approve it.' : 'Mainnet staking is not enabled.'}</p>
+        {!enabled ? <p className="warn-box">Mainnet staking is not enabled. Nothing was submitted.</p> : null}
+        {enabled && store.balance.kind === 'sample' ? <p className="warn-box">The sample layout is not a wallet. Connect a testnet account before staking.</p> : null}
+        {enabled && store.balance.kind === 'empty' ? <p>Connect a NEAR testnet wallet so the available balance can be checked.</p> : null}
+        {enabled && store.balance.kind === 'live' && store.balance.loading && !store.balance.available ? <p className="loading-line" role="status">Reading the available balance…</p> : null}
+        {enabled && store.balance.kind === 'live' && !store.balance.loading && !store.balance.availableYocto ? <p className="warn-box">The available balance could not be read. Nothing was prepared.</p> : null}
+        {!promptAmount ? (
+          <Field id="chat-stake-amount" label="Stake amount (NEAR)" hint="The preview uses this amount. Nothing is signed until you approve it.">
+            <input
+              id="chat-stake-amount"
+              inputMode="decimal"
+              value={typedAmount}
+              onChange={(event) => {
+                setTypedAmount(event.target.value);
+                setChecked(false);
+              }}
+            />
+          </Field>
+        ) : null}
+        {loadingPools ? <p className="loading-line" role="status">Reading validator commissions…</p> : null}
+        {poolsError ? <p className="warn-box" role="alert">{poolsError}</p> : null}
+        {missingPreference ? <p className="warn-box">No readable pool matched {preference}. Nothing was prepared.</p> : null}
+        {askForValidator ? (
+          <ValidatorPicker
+            pools={pools}
+            moreOpen={moreOpen}
+            onMore={() => setMoreOpen((open) => !open)}
+            onSelect={selectPool}
+          />
+        ) : null}
+        {enabled && pool && !missingPreference && requested == null ? <p className="hint">Enter an amount to prepare the preview.</p> : null}
+        {stakeRows.length ? <TxTable rows={stakeRows} /> : null}
+        {stakeDetailRows.length ? (
+          <details className="help">
+            <summary>Technical details</summary>
+            <div className="help-body">
+              <TxTable rows={stakeDetailRows} />
+            </div>
+          </details>
+        ) : null}
+        {tooLarge ? (
+          <p className="warn-box" role="alert">
+            That leaves less than {formatNear(FEE_RESERVE_YOCTO)} NEAR for the transaction fee. The most you can stake is {stakeable == null ? 'unknown' : `${formatNear(stakeable)} NEAR`}. Nothing was submitted.
+          </p>
+        ) : null}
+        {result?.kind === 'success' ? (
+          <div id="chat-stake-result">
+            <h2>Stake confirmed</h2>
+            <p>{amount} NEAR was delegated to {pool?.label ?? 'the pool'}. The pool now reports {result.staked} NEAR staked for this account. Activity includes this stake.</p>
+            <details className="help">
+              <summary>Transaction hash</summary>
+              <div className="help-body">
+                <p className="mono">{result.hash}</p>
+              </div>
+            </details>
           </div>
-        </>
-      ) : null}
+        ) : null}
+        {result && result.kind !== 'success' ? (
+          <div id="chat-stake-result">
+            <h2>{result.kind === 'rejected' ? 'Stake declined' : result.kind === 'failed' ? 'Stake failed' : 'Stake not confirmed'}</h2>
+            <p>{result.message}</p>
+            {result.hash ? (
+              <details className="help">
+                <summary>Transaction hash</summary>
+                <div className="help-body">
+                  <p className="mono">{result.hash}</p>
+                </div>
+              </details>
+            ) : null}
+          </div>
+        ) : null}
+        {sending ? <p className="loading-line" role="status">Waiting for your wallet, then for NEAR to confirm the transaction…</p> : null}
+        <details className="help">
+          <summary>About this preview</summary>
+          <div className="help-body">
+            <p>The reply does not set the amount, the validator, or the fee. {pool ? 'This preview uses the connected wallet and the pool contract.' : 'Choose a validator before a preview is prepared.'} {missingPreference ? 'The named validator was not replaced.' : ''}</p>
+          </div>
+        </details>
+      </div>
+      <div className="action-dock">
+        <p className="dock-summary">
+          {pool && requested != null
+            ? `${amount} NEAR to ${pool.label}. ${stakeStatus}.`
+            : 'Choose a validator and an amount. Nothing is signed yet.'}
+        </p>
+        {result?.kind === 'success' ? (
+          <a className="btn btn-secondary" href={result.explorer} target="_blank" rel="noreferrer">View on the explorer</a>
+        ) : (
+          <>
+            {ready ? (
+              <label className="check">
+                <input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} disabled={sending} />
+                <span>I want to stake this NEAR. My wallet must approve it.</span>
+              </label>
+            ) : null}
+            <div className="inline-actions">
+              {enabled && store.balance.kind === 'empty' ? <Button variant="primary" onClick={store.openConnect}>Connect a NEAR wallet</Button> : null}
+              {!enabled ? <Button variant="primary" onClick={() => void store.setNetwork('testnet')}>Use testnet</Button> : null}
+              {enabled && pool && !preference ? (
+                <Button onClick={() => { setPool(null); setChecked(false); setResult(null); }}>Choose a different validator</Button>
+              ) : null}
+              {ready ? (
+                <Button id="chat-stake-approve" variant="primary" disabled={!checked || sending} onClick={() => void approve()}>
+                  Approve in wallet
+                </Button>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -591,21 +603,32 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
 
   const quote = liveQuote ?? dryQuote;
   const showWallet = parsed.chain === 'sol' || parsed.chain === 'base';
+  const quoteRows = quote ? quotePreviewRows(quote) : [];
+  const essentialQuoteLabels = new Set(['Source', 'Amount in', 'Expected output', 'Minimum output', 'Withdraw fee', 'NEAR Easy fee', 'Network', 'Recipient']);
+  const essentialQuoteRows = quoteRows.filter((row) => essentialQuoteLabels.has(row.label)).map(({ label, value }) => ({ label, value }));
+  const detailQuoteRows = quoteRows.filter((row) => !essentialQuoteLabels.has(row.label));
+  const fundSummary = status?.status === 'SUCCESS'
+    ? `Tidepool reported SUCCESS.${status.amountOutFormatted ? ` Settled amount ${status.amountOutFormatted}.` : ''}`
+    : quote
+      ? `${quote.amountInFormatted} ${quote.originSymbol} to ${quote.recipient}. ${liveQuote ? 'Deposit is not sent yet.' : 'Dry quote only. Nothing is sent.'}`
+      : quoteAmount
+        ? `${quoteAmount} ${parsed.token}. A quote waits for a destination and a source wallet.`
+        : 'Enter an amount. Nothing is quoted yet.';
 
   return (
     <div className="flow" id="funding-handoff">
+      <div className="flow-body">
       <p className="eyebrow">
         <Badge tone="accent">Available (Testnet)</Badge> Tidepool quote
       </p>
-      <p>The figures below come from Tidepool. This reply does not set them. Real-money transfers stay off. A transfer is finished only when Tidepool reports SUCCESS.</p>
-      {!parsed.chainWasNamed ? <p className="hint">The network was not named, so Solana devnet is selected.</p> : null}
-      {!parsed.tokenWasNamed ? <p className="hint">The token was not named, so the quote uses test USDC in and test wNEAR out. Test wNEAR cannot be staked as native NEAR.</p> : null}
-      {destination?.symbol === 'wNEAR' ? <p className="hint">Test wNEAR cannot be turned into native NEAR here, and this quote does not stake it.</p> : null}
-      {separateStake ? <p>Staking is a separate step after native NEAR is in the wallet. This request does not stake the bridged token.</p> : null}
-      {!signable ? <p>This chat can ask a wallet to approve Solana devnet, Base Sepolia, or a NEAR testnet deposit. {chainLabel(parsed.chain)} stays on the funding page.</p> : null}
+      <p>Nothing is sent until you approve it.</p>
+      {!parsed.chainWasNamed ? <p className="hint">Source network: Solana devnet.</p> : null}
+      {!parsed.tokenWasNamed || destination?.symbol === 'wNEAR' ? <p className="hint">Test wNEAR cannot be staked or unwrapped.</p> : null}
+      {separateStake ? <p className="hint">Staking is a separate step.</p> : null}
+      {!signable ? <p className="hint">This chain is not approved in this panel.</p> : null}
       {catalogError ? <p className="warn-box" role="alert">{catalogError}</p> : null}
       {!parsed.amountWasNamed ? (
-        <Field id="chat-fund-amount" label="Amount" hint="Tidepool is asked after you enter an amount. Nothing is sent.">
+        <Field id="chat-fund-amount" label="Amount">
           <input
             id="chat-fund-amount"
             inputMode="decimal"
@@ -623,7 +646,7 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
       ) : null}
       {store.network !== 'testnet' && !namedRecipient ? <p className="hint">A mainnet account is not used as the destination.</p> : null}
       {editingDestination ? (
-        <Field id="chat-fund-recipient" label="NEAR testnet account" hint="Use name.testnet. A mainnet account is not accepted.">
+        <Field id="chat-fund-recipient" label="NEAR testnet account">
           <input
             id="chat-fund-recipient"
             value={customDestination ?? ''}
@@ -649,6 +672,7 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
       {customDestination !== null && isNearTestnetAccount(recipient) ? <p>Destination {recipient}.</p> : null}
       {showWallet ? (
         <OriginWallet
+          compact
           chain={parsed.chain === 'base' ? 'base' : 'sol'}
           account={parsed.chain === 'base' ? evmAccount : solanaAccount}
           walletId={parsed.chain === 'base' ? evmWalletId : solanaWalletId}
@@ -675,16 +699,28 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
           }}
         />
       ) : null}
-      {signable && !refund ? <p className="hint">Connect the source wallet before Tidepool is asked for a quote. Nothing is sent.</p> : null}
       {busy && !quote && !liveQuote ? <p className="loading-line" role="status">Asking Tidepool for a testnet quote…</p> : null}
-      {quote ? <TxTable rows={quotePreviewRows(quote)} /> : null}
+      {essentialQuoteRows.length ? <TxTable rows={essentialQuoteRows} /> : null}
+      {detailQuoteRows.length ? (
+        <details className="help">
+          <summary>Quote details</summary>
+          <div className="help-body">
+            <TxTable rows={detailQuoteRows} />
+          </div>
+        </details>
+      ) : null}
       {liveQuote?.depositAddress && status?.status !== 'SUCCESS' ? (
         <>
           <h2>Deposit is not sent yet</h2>
-          <ul className="plain-steps">
-            {depositLines(liveQuote).map((line) => <li key={line}>{line}</li>)}
-          </ul>
           <p className="mono">{liveQuote.depositAddress}</p>
+          <details className="help">
+            <summary>Deposit steps</summary>
+            <div className="help-body">
+              <ul className="plain-steps">
+                {depositLines(liveQuote).map((line) => <li key={line}>{line}</li>)}
+              </ul>
+            </div>
+          </details>
         </>
       ) : null}
       {note && !(status && status.terminal) ? <p role="status">{note}</p> : null}
@@ -705,6 +741,14 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
               ))}
             </div>
           ) : null}
+          {status.hashes.length ? (
+            <details className="help">
+              <summary>Transaction hashes</summary>
+              <div className="help-body">
+                {status.hashes.map((item) => <p key={item.hash} className="mono">{item.hash}</p>)}
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : status ? (
         <div className={status.terminal ? 'result-panel failure' : undefined}>
@@ -713,41 +757,66 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
           <p>API status: {status.status}.{status.updatedAt ? ` Updated ${status.updatedAt}.` : ''}</p>
           <p>An origin transaction, even after the test network confirms it, is not a finished transfer.</p>
           {status.amountOutFormatted ? <p>Settled output in the status: {status.amountOutFormatted}.</p> : null}
+          {status.hashes.length ? (
+            <details className="help">
+              <summary>Transaction hashes</summary>
+              <div className="help-body">
+                {status.hashes.map((item) => <p key={item.hash} className="mono">{item.hash}</p>)}
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : null}
       {error ? <p className="warn-box" role="alert">{error}</p> : null}
-      {!liveQuote && dryQuote ? (
-        <label className="check">
-          <input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} disabled={busy} />
-          <span>I want this deposit prepared for {recipient}. Tidepool will be asked for an address. It does not send funds.</span>
-        </label>
-      ) : null}
-      {liveQuote && !status?.terminal ? (
-        <label className="check">
-          <input type="checkbox" checked={approveChecked} onChange={(event) => setApproveChecked(event.target.checked)} disabled={busy} />
-          <span>I want to send this test transfer. My wallet must approve it.</span>
-        </label>
-      ) : null}
-      <div className="inline-actions">
+      <details className="help">
+        <summary>About this quote</summary>
+        <div className="help-body">
+          <p>Figures come from Tidepool. A transfer is finished only when Tidepool reports SUCCESS.</p>
+          {!parsed.chainWasNamed ? <p>The network was not named, so Solana devnet is selected.</p> : null}
+          {!parsed.tokenWasNamed ? <p>The token was not named, so the quote uses test USDC in and test wNEAR out. Test wNEAR cannot be staked as native NEAR.</p> : null}
+          {destination?.symbol === 'wNEAR' ? <p>Test wNEAR cannot be turned into native NEAR here, and this quote does not stake it.</p> : null}
+          {separateStake ? <p>Staking is a separate step. This request does not stake the bridged token.</p> : null}
+          {!signable ? <p>{chainLabel(parsed.chain)} is not approved in this panel. This panel approves Solana devnet, Base Sepolia, or a NEAR testnet deposit.</p> : null}
+          <p>Use name.testnet. A mainnet account is not accepted.</p>
+          <p>Connect the source wallet before Tidepool is asked for a quote. Nothing is sent.</p>
+          <p>Tidepool is asked after you enter an amount. Nothing is sent until you approve a prepared deposit in your wallet.</p>
+          <p>The reply does not set the amount, the fee, or the received amount. Real-money transfers stay off.</p>
+        </div>
+      </details>
+      </div>
+      <div className="action-dock">
+        <p className="dock-summary">{fundSummary}</p>
         {!liveQuote && dryQuote ? (
-          <Button id="chat-fund-prepare" variant="primary" disabled={!checked || busy} onClick={() => void prepare()}>Prepare deposit</Button>
+          <label className="check">
+            <input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} disabled={busy} />
+            <span>I want this deposit prepared for {recipient}. Tidepool will be asked for an address. It does not send funds.</span>
+          </label>
         ) : null}
         {liveQuote && !status?.terminal ? (
-          <Button
-            id="chat-fund-approve"
-            variant="primary"
-            disabled={!approveChecked || busy || (parsed.chain === 'sol' ? !solanaAccount : parsed.chain === 'base' ? !evmAccount : store.network !== 'testnet' || !store.accountId)}
-            onClick={() => void approve()}
-          >
-            Approve in wallet
-          </Button>
+          <label className="check">
+            <input type="checkbox" checked={approveChecked} onChange={(event) => setApproveChecked(event.target.checked)} disabled={busy} />
+            <span>I want to send this test transfer. My wallet must approve it.</span>
+          </label>
         ) : null}
-        {(parsed.chain === 'near' || !namedRecipient) && store.network !== 'testnet' ? (
-          <Button onClick={() => void store.setNetwork('testnet')}>Use testnet</Button>
-        ) : null}
-        {!connectedRecipient ? <Button id="chat-fund-connect" variant="primary" onClick={store.openConnect}>Connect a NEAR wallet</Button> : null}
-        <Link className="btn btn-secondary" to={fundingPath(prompt)}>Open the funding page</Link>
-        {separateStake ? <Link className="btn btn-secondary" to="/staking">Staking page</Link> : null}
+        <div className="inline-actions">
+          {!liveQuote && dryQuote ? (
+            <Button id="chat-fund-prepare" variant="primary" disabled={!checked || busy} onClick={() => void prepare()}>Prepare deposit</Button>
+          ) : null}
+          {liveQuote && !status?.terminal ? (
+            <Button
+              id="chat-fund-approve"
+              variant="primary"
+              disabled={!approveChecked || busy || (parsed.chain === 'sol' ? !solanaAccount : parsed.chain === 'base' ? !evmAccount : store.network !== 'testnet' || !store.accountId)}
+              onClick={() => void approve()}
+            >
+              Approve in wallet
+            </Button>
+          ) : null}
+          {(parsed.chain === 'near' || !namedRecipient) && store.network !== 'testnet' ? (
+            <Button onClick={() => void store.setNetwork('testnet')}>Use testnet</Button>
+          ) : null}
+          {!connectedRecipient ? <Button id="chat-fund-connect" variant="primary" onClick={store.openConnect}>Connect a NEAR wallet</Button> : null}
+        </div>
       </div>
     </div>
   );

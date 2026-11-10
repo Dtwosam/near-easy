@@ -101,7 +101,7 @@ try {
   await page.waitForSelector('.sample-banner');
   const sampleStatus = await page.$eval('#wallet-status', (node) => node.textContent.trim());
   check('sample layout is labelled', sampleStatus === 'Sample layout', sampleStatus);
-  check('sample banner visible', (await page.$eval('.sample-banner', (node) => node.innerText)).includes('not your balances'));
+  check('sample banner visible', (await page.$eval('.sample-banner', (node) => node.innerText)).includes('not a live wallet'));
 
   await clickText('Use $100 from Solana to stake NEAR.');
   await page.waitForSelector('#funding-handoff', { timeout: 8000 });
@@ -110,9 +110,9 @@ try {
     href: node.querySelector('a')?.getAttribute('href') ?? '',
   }));
   check('assistant prepares 100 USDC on Solana devnet', /100/.test(handoff.text) && /USDC/.test(handoff.text) && /Solana devnet/.test(handoff.text), handoff.text.replace(/\s+/g, ' '));
-  check('assistant does not invent a received amount', !/you will receive \d/i.test(handoff.text) && /Nothing was sent/.test(handoff.text));
-  check('assistant links to the testnet quote', /\/funding\?/.test(handoff.href) && /amount=100/.test(handoff.href) && /chain=sol/.test(handoff.href), handoff.href);
-  check('assistant keeps staking separate', /does not stake/.test(handoff.text));
+  check('assistant does not invent a received amount', !/you will receive \d/i.test(handoff.text) && /Nothing is sent until you approve it/.test(handoff.text));
+  check('assistant keeps the quote in chat', handoff.href === '' && !/Open the funding page/.test(handoff.text), handoff.href);
+  check('assistant keeps staking separate', /Staking is a separate step/.test(handoff.text));
 
   await page.goto(base + '/explore', { waitUntil: 'domcontentloaded' });
   await page.type('#explore-search', 'rhea');
@@ -180,7 +180,7 @@ try {
   await page.select('#stake-validator', firstPool);
   const validatorCard = await page.evaluate(() => document.body.innerText);
   check('validator selection shows the pool and a commission', validatorCard.includes(firstPool) && /\d+(?:\.\d+)?%/.test(validatorCard), firstPool);
-  check('mainnet staking stays off', /Mainnet staking stays off/.test(validatorCard));
+  check('mainnet staking stays off', /Mainnet staking and unstaking stay off/.test(validatorCard));
   await page.type('#stake-amount', '0');
   await clickText('Review stake');
   check('stake form rejects zero', /greater than zero/.test(await page.evaluate(() => document.body.innerText)));
@@ -225,12 +225,16 @@ try {
 
   await page.type('#chat-input', 'Stake 5 NEAR');
   await page.click('.chat-command .command-go');
-  await page.waitForSelector('a[href="/staking?amount=5"]', { timeout: 8000 });
-  check('stake instruction opens the staking amount', true);
-  await page.click('a[href="/staking?amount=5"]');
-  await page.waitForSelector('#stake-amount');
-  const fromAssistant = await page.$eval('#stake-amount', (node) => node.value);
-  check('assistant fills 5 NEAR', fromAssistant === '5', fromAssistant);
+  await page.waitForSelector('#chat-stake', { timeout: 8000 });
+  const mainnetStake = await page.$eval('#action-panel', (node) => node.innerText);
+  check('mainnet stake stays unsigned', /Mainnet staking is not enabled/.test(mainnetStake) && !/Approve in wallet/.test(mainnetStake), mainnetStake.replace(/\s+/g, ' ').slice(0, 240));
+  await clickText('Use testnet');
+  await page.waitForSelector('#chat-validator-picker .validator-option', { timeout: 60000 });
+  await page.click('#chat-validator-picker .validator-option');
+  await page.waitForFunction(() => /5 NEAR/.test(document.querySelector('#action-panel')?.innerText ?? ''), { timeout: 8000 });
+  const stakePanel = await page.$eval('#action-panel', (node) => node.innerText);
+  check('stake instruction stays in the action panel', /Stake NEAR/.test(stakePanel) && /5 NEAR/.test(stakePanel) && !/Open Easy Staking/.test(stakePanel), stakePanel.replace(/\s+/g, ' ').slice(0, 240));
+  check('stake approval stays behind a checkbox', !/Approve in wallet/.test(stakePanel));
   await page.goto(base + '/assistant', { waitUntil: 'domcontentloaded' });
   await page.type('#chat-input', 'What is staking on NEAR?');
   await page.click('.chat-command .command-go');
