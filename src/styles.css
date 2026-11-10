@@ -605,6 +605,9 @@ p { margin: 0 0 var(--s3); }
 }
 .composer .command { margin-top: 0; }
 .composer .inline-actions { margin-top: 4px; }
+.suggest-groups { display: flex; flex-direction: column; gap: 16px; width: 100%; text-align: left; }
+.suggest-groups .hint { font-weight: 700; }
+.suggest-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
 .suggest-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); width: 100%; margin-top: var(--s2); align-items: stretch; }
 .suggest {
   display: flex;
@@ -626,6 +629,7 @@ p { margin: 0 0 var(--s3); }
 .suggest svg { color: var(--accent); flex: none; margin-top: 2px; }
 .suggest span { text-wrap: balance; }
 .suggest:hover { border-color: rgba(53, 245, 160, 0.55); background: rgba(23, 40, 36, 0.9); }
+.chip:disabled, .suggest:disabled { opacity: 0.55; cursor: not-allowed; }
 .speech .flow {
   margin-top: 12px;
   padding: 16px;

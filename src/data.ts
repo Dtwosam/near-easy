@@ -139,6 +139,19 @@ export const suggestions = [
   'Show me what I can do on NEAR.',
 ];
 
+export const assistantSuggestions = {
+  staking: [
+    'Stake 0.5 NEAR',
+    'Help me stake NEAR',
+    'Show me staking validators',
+  ],
+  funding: [
+    'Move 1 USDC from Solana to NEAR',
+    'Fund my NEAR wallet using Base',
+    'Move 5 test USDC to NEAR',
+  ],
+};
+
 export const glossary = [
   { term: 'Account name', body: 'The address that holds your NEAR. A named account looks like name.near. An implicit account is 64 letters and numbers and has no dot.' },
   { term: 'Gas', body: 'A small fee paid in NEAR to submit a transaction. You need a little liquid NEAR to pay it. NEAR does not use a separate gas token.' },

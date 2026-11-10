@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { assistantConfigured } from '../assistantClient';
-import { suggestions } from '../data';
-import { chainLabel } from '../funding/plan';
+import { assistantSuggestions } from '../data';
 import { Icon } from '../icons';
-import { parseFundingAsk, parseStakeAsk } from '../logic';
+import { parseStakeAsk } from '../logic';
 import type { Intent } from '../logic';
 import { useStore } from '../store';
 import type { ChatMessage } from '../store';
@@ -30,37 +29,30 @@ function stakingPath(prompt: string): string {
   return amount ? `/staking?amount=${encodeURIComponent(amount)}` : '/staking';
 }
 
-function fundingPath(prompt: string): string {
-  const parsed = parseFundingAsk(prompt);
-  const params = new URLSearchParams({ chain: parsed.chain, token: parsed.token, amount: parsed.amount });
-  return `/funding?${params.toString()}`;
-}
-
-function FundingHandoff({ prompt, stake }: { prompt: string; stake: boolean }) {
-  const parsed = parseFundingAsk(prompt);
+function SuggestionList({ onPick, disabled }: { onPick: (value: string) => void; disabled: boolean }) {
   return (
-    <div className="flow" id="funding-handoff">
-      <p className="eyebrow">
-        <Badge tone="demo">Testnet</Badge> Tidepool quote
-      </p>
-      <p>
-        {parsed.amount} {parsed.token} from {chainLabel(parsed.chain)}. Nothing was sent from this chat.
-      </p>
-      {!parsed.tokenWasNamed ? <p className="hint">The token was not named, so USDC is selected. You can change it on the funding page.</p> : null}
-      {!parsed.chainWasNamed ? <p className="hint">The network was not named, so Solana devnet is selected. You can change it on the funding page.</p> : null}
-      <p className="hint">Name an amount to prepare a Tidepool quote here. Solana devnet, Base Sepolia, and NEAR testnet can be approved in this chat. A finished transfer is shown only after Tidepool reports SUCCESS. Test wNEAR cannot be staked as native NEAR. Real-money transfers stay off.</p>
-      {stake ? <p>Staking is a separate step after native NEAR is in the wallet. This request does not stake the bridged token.</p> : null}
-      <div className="action-row">
-        <Link className="action-card" to={fundingPath(prompt)}>
-          <strong>Open the testnet quote</strong>
-          <span>Review the amount before any deposit is prepared.</span>
-        </Link>
-        {stake ? (
-          <Link className="action-card" to="/staking">
-            <strong>Staking page</strong>
-            <span>Stake native NEAR later. The bridged amount is not filled in.</span>
-          </Link>
-        ) : null}
+    <div className="suggest-groups">
+      <div>
+        <p className="hint">Staking</p>
+        <div className="suggest-grid">
+          {assistantSuggestions.staking.map((suggestion) => (
+            <button key={suggestion} type="button" className="suggest" disabled={disabled} onClick={() => onPick(suggestion)}>
+              <Icon name="spark" size={16} />
+              <span>{suggestion}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="hint">Funding</p>
+        <div className="suggest-grid">
+          {assistantSuggestions.funding.map((suggestion) => (
+            <button key={suggestion} type="button" className="suggest" disabled={disabled} onClick={() => onPick(suggestion)}>
+              <Icon name="spark" size={16} />
+              <span>{suggestion}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -73,9 +65,6 @@ function Workflow({ intent, prompt }: { intent: Intent; prompt: string }) {
         A sentence does not approve a transaction. Use Approve in wallet on the preview. Nothing is signed until you do.
       </p>
     );
-  }
-  if (intent === 'fund' || intent === 'fund-stake') {
-    return <FundingHandoff prompt={prompt} stake={intent === 'fund-stake'} />;
   }
   const stakeAmount = parseStakeAsk(prompt);
   const items = intent === 'wallet'
@@ -204,15 +193,8 @@ export function AssistantPage() {
                 <Icon name="spark" />
               </span>
               <h2>Ask in plain English</h2>
-              <p>Ask about NEAR, your wallet, staking, or testnet funding. A preview appears here. Nothing is signed until you approve it.</p>
-              <div className="suggest-grid">
-                {suggestions.map((suggestion) => (
-                  <button key={suggestion} type="button" className="suggest" onClick={() => submit(suggestion)}>
-                    <Icon name="spark" size={16} />
-                    <span>{suggestion}</span>
-                  </button>
-                ))}
-              </div>
+              <p>Choose a prompt or ask in your own words. A preview appears here. Nothing is signed until you approve it.</p>
+              <SuggestionList onPick={submit} disabled={store.pending} />
             </div>
           ) : null}
 
@@ -241,9 +223,9 @@ export function AssistantPage() {
                       <p className="loading-line" role="status" aria-busy="true">Asking the assistant…</p>
                     ) : null}
                   </div>
-                  {workflowIntent(message) === 'stake' && parseStakeAsk(message.prompt) ? (
+                  {workflowIntent(message) === 'stake' && !/\bunstak/i.test(message.prompt) ? (
                     <ChatStake prompt={message.prompt} />
-                  ) : (workflowIntent(message) === 'fund' || workflowIntent(message) === 'fund-stake') && parseFundingAsk(message.prompt).amountWasNamed ? (
+                  ) : (workflowIntent(message) === 'fund' || workflowIntent(message) === 'fund-stake') ? (
                     <ChatFunding prompt={message.prompt} separateStake={workflowIntent(message) === 'fund-stake'} />
                   ) : (
                     <Workflow intent={workflowIntent(message)} prompt={message.prompt} />
@@ -262,6 +244,22 @@ export function AssistantPage() {
         </div>
 
         <div className="composer">
+          {store.messages.length > 0 ? (
+            <div className="suggest-bar" aria-label="Example prompts">
+              <span className="hint">Staking</span>
+              {assistantSuggestions.staking.map((suggestion) => (
+                <button key={suggestion} type="button" className="chip" disabled={store.pending} onClick={() => submit(suggestion)}>
+                  {suggestion}
+                </button>
+              ))}
+              <span className="hint">Funding</span>
+              {assistantSuggestions.funding.map((suggestion) => (
+                <button key={suggestion} type="button" className="chip" disabled={store.pending} onClick={() => submit(suggestion)}>
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <form
             className="command chat-command"
             onSubmit={(event) => {

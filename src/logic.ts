@@ -74,6 +74,13 @@ export function parseFundingRecipient(text: string): string | null {
   return isNearTestnetAccount(account) ? account : null;
 }
 
+/** A named account wins. Otherwise use the connected testnet account. No other address is filled in. */
+export function proposedFundingRecipient(named: string | null, network: string, accountId: string | null): string {
+  if (named) return named;
+  if (network === 'testnet' && accountId && isNearTestnetAccount(accountId)) return accountId;
+  return '';
+}
+
 const VALIDATOR_SKIP = new Set(['near', 'testnet', 'mainnet', 'the', 'a', 'an', 'my', 'wallet', 'me', 'this', 'account']);
 
 /** A pool name or pool account from the request. An amount alone is not a validator. */

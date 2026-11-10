@@ -63,6 +63,35 @@ check('signing sentence stays blocked', logic.matchIntent('Sign the transaction'
 check('send the transaction stays blocked', logic.matchIntent('Send the transaction from my Solana wallet') === 'execute-blocked');
 check('do it now stays blocked', logic.matchIntent('Do it now') === 'execute-blocked');
 check('confirm and stake stays blocked', logic.matchIntent('Confirm and stake') === 'execute-blocked');
+
+const suggestions = [
+  ['Stake 0.5 NEAR', 'stake', '0.5', null],
+  ['Help me stake NEAR', 'stake', null, null],
+  ['Show me staking validators', 'stake', null, null],
+  ['Move 1 USDC from Solana to NEAR', 'fund', '1', 'sol'],
+  ['Fund my NEAR wallet using Base', 'fund', null, 'base'],
+  ['Move 5 test USDC to NEAR', 'fund', '5', 'sol'],
+];
+for (const [sentence, intent, amount, chain] of suggestions) {
+  check(`suggestion intent: ${sentence}`, logic.matchIntent(sentence) === intent, logic.matchIntent(sentence));
+  if (intent === 'stake') {
+    check(`suggestion stake amount: ${sentence}`, logic.parseStakeAsk(sentence) === amount, String(logic.parseStakeAsk(sentence)));
+  } else {
+    const parsed = logic.parseFundingAsk(sentence);
+    check(`suggestion funding fields: ${sentence}`, parsed.chain === chain && parsed.token === 'USDC' && (amount ? parsed.amount === amount && parsed.amountWasNamed : parsed.amountWasNamed === false) && logic.parseFundingRecipient(sentence) === null, JSON.stringify(parsed));
+  }
+}
+check('validator suggestions name no pool', logic.parseValidatorAsk('Show me staking validators') === null && logic.parseValidatorAsk('Help me stake NEAR') === null && logic.parseValidatorAsk('Stake 0.5 NEAR') === null);
+const baseSuggestion = logic.parseFundingAsk('Fund my NEAR wallet using Base');
+check('base suggestion asks for an amount', baseSuggestion.amountWasNamed === false && baseSuggestion.chain === 'base' && baseSuggestion.chainWasNamed === true && baseSuggestion.token === 'USDC' && baseSuggestion.tokenWasNamed === false);
+const unnamedNetwork = logic.parseFundingAsk('Move 5 test USDC to NEAR');
+check('unnamed network stays Solana', unnamedNetwork.chain === 'sol' && unnamedNetwork.chainWasNamed === false && unnamedNetwork.amount === '5' && unnamedNetwork.amountWasNamed === true && unnamedNetwork.tokenWasNamed === true);
+check('home fund-stake sentence stays two steps', logic.matchIntent('Use $100 from Solana to stake NEAR.') === 'fund-stake');
+check('named destination wins over the connected account', logic.proposedFundingRecipient('bob.testnet', 'testnet', 'roundwheat3869.testnet') === 'bob.testnet');
+check('connected testnet account is proposed', logic.proposedFundingRecipient(null, 'testnet', 'roundwheat3869.testnet') === 'roundwheat3869.testnet');
+check('mainnet account is not proposed', logic.proposedFundingRecipient(null, 'mainnet', 'roundwheat3869.testnet') === '');
+check('a mainnet name is not proposed', logic.proposedFundingRecipient(null, 'testnet', 'alice.near') === '');
+check('an empty wallet proposes nothing', logic.proposedFundingRecipient(null, 'testnet', null) === '');
 check('mainnet account is rejected', plan.isNearTestnetAccount('alice.near') === false && plan.isNearTestnetAccount('alice.testnet') === true);
 check('ten USDC is 10000000 base units', plan.toBaseUnits('10', 6) === '10000000');
 check('too many decimals are rejected', plan.toBaseUnits('0.0000001', 6) === null);

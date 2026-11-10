@@ -11,6 +11,7 @@ import {
   depositLines,
   isNearTestnetAccount,
   nearDepositAction,
+  parseFundingAmount,
   pickToken,
   quotePreviewRows,
   saveFundingActivity,
@@ -18,7 +19,7 @@ import {
 } from '../funding/plan';
 import type { FundingStatus, FundingToken, PublicQuote, VerifiedHash } from '../funding/plan';
 import { approveSolanaDeposit } from '../funding/solanaWallet';
-import { parseFundingAsk, parseFundingRecipient, parseStakeAsk, parseValidatorAsk } from '../logic';
+import { parseFundingAsk, parseFundingRecipient, parseStakeAsk, parseValidatorAsk, proposedFundingRecipient } from '../logic';
 import { formatNear } from '../near/format';
 import { chooseStakePool, loadStakePools } from '../near/stakeChain';
 import type { StakePool } from '../near/stakeChain';
@@ -48,7 +49,8 @@ function stakingPath(prompt: string): string {
 
 function fundingPath(prompt: string): string {
   const parsed = parseFundingAsk(prompt);
-  const params = new URLSearchParams({ chain: parsed.chain, token: parsed.token, amount: parsed.amount });
+  const params = new URLSearchParams({ chain: parsed.chain, token: parsed.token });
+  if (parsed.amountWasNamed) params.set('amount', parsed.amount);
   const recipient = parseFundingRecipient(prompt);
   if (recipient) params.set('to', recipient);
   if (parsed.tokenWasNamed) params.set('dest', parsed.token);
@@ -119,7 +121,9 @@ function ValidatorPicker({
 
 export function ChatStake({ prompt }: { prompt: string }) {
   const store = useStore();
-  const amount = parseStakeAsk(prompt) ?? '';
+  const promptAmount = parseStakeAsk(prompt);
+  const [typedAmount, setTypedAmount] = useState('');
+  const amount = promptAmount ?? typedAmount;
   const preference = parseValidatorAsk(prompt);
   const enabled = stakingEnabled(store.network);
   const [pools, setPools] = useState<StakePool[]>([]);
@@ -248,6 +252,19 @@ export function ChatStake({ prompt }: { prompt: string }) {
       {enabled && store.balance.kind === 'empty' ? <p>Connect a NEAR testnet wallet so the available balance can be checked.</p> : null}
       {enabled && store.balance.kind === 'live' && store.balance.loading && !store.balance.available ? <p className="loading-line" role="status">Reading the available balance…</p> : null}
       {enabled && store.balance.kind === 'live' && !store.balance.loading && !store.balance.availableYocto ? <p className="warn-box">The available balance could not be read. Nothing was prepared.</p> : null}
+      {!promptAmount ? (
+        <Field id="chat-stake-amount" label="Stake amount (NEAR)" hint="The preview uses this amount. Nothing is signed until you approve it.">
+          <input
+            id="chat-stake-amount"
+            inputMode="decimal"
+            value={typedAmount}
+            onChange={(event) => {
+              setTypedAmount(event.target.value);
+              setChecked(false);
+            }}
+          />
+        </Field>
+      ) : null}
       {loadingPools ? <p className="loading-line" role="status">Reading validator commissions…</p> : null}
       {poolsError ? <p className="warn-box" role="alert">{poolsError}</p> : null}
       {missingPreference ? <p className="warn-box">No readable pool matched {preference}. Nothing was prepared.</p> : null}
@@ -259,7 +276,8 @@ export function ChatStake({ prompt }: { prompt: string }) {
           onSelect={selectPool}
         />
       ) : null}
-      {enabled && pool && !missingPreference ? (
+      {enabled && pool && !missingPreference && requested == null ? <p className="hint">Enter an amount to prepare the preview.</p> : null}
+      {enabled && pool && !missingPreference && requested != null ? (
         <TxTable
           rows={[
             { label: 'Amount', value: `${amount} NEAR` },
@@ -349,11 +367,13 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
   const store = useStore();
   const parsed = parseFundingAsk(prompt);
   const namedRecipient = parseFundingRecipient(prompt);
-  const connectedRecipient = store.network === 'testnet' && store.accountId && isNearTestnetAccount(store.accountId)
-    ? store.accountId
-    : '';
-  const [typedRecipient, setTypedRecipient] = useState('');
-  const recipient = (namedRecipient || connectedRecipient || typedRecipient).trim().toLowerCase();
+  const connectedRecipient = proposedFundingRecipient(null, store.network, store.accountId);
+  const proposedRecipient = proposedFundingRecipient(namedRecipient, store.network, store.accountId);
+  const [typedAmount, setTypedAmount] = useState('');
+  const [customDestination, setCustomDestination] = useState<string | null>(null);
+  const quoteAmount = parsed.amountWasNamed ? parsed.amount : parseFundingAmount(typedAmount) ?? '';
+  const recipient = (customDestination !== null ? customDestination : proposedRecipient).trim().toLowerCase();
+  const editingDestination = customDestination !== null || (!namedRecipient && !connectedRecipient);
   const [solanaWalletId, setSolanaWalletId] = useState('');
   const [solanaAccount, setSolanaAccount] = useState('');
   const [evmWalletId, setEvmWalletId] = useState('');
@@ -400,7 +420,16 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
   }, [parsed.chain, parsed.token, parsed.tokenWasNamed, signable]);
 
   useEffect(() => {
-    if (!origin || !destination || !isNearTestnetAccount(recipient) || !refund || liveQuote) return;
+    setLiveQuote(null);
+    setDryQuote(null);
+    setStatus(null);
+    setChecked(false);
+    setApproveChecked(false);
+    setNote('');
+  }, [quoteAmount, recipient, refund]);
+
+  useEffect(() => {
+    if (!quoteAmount || !origin || !destination || !isNearTestnetAccount(recipient) || !refund || liveQuote) return;
     const controller = new AbortController();
     setDryQuote(null);
     setError('');
@@ -409,7 +438,7 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
       dry: true,
       originAsset: origin.assetId,
       destinationAsset: destination.assetId,
-      amount: parsed.amount,
+      amount: quoteAmount,
       refundTo: refund,
       recipient,
     }, controller.signal)
@@ -423,7 +452,7 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
         if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [destination, liveQuote, origin, parsed.amount, recipient, refund]);
+  }, [destination, liveQuote, origin, quoteAmount, recipient, refund]);
 
   const pollDeposit = liveQuote?.depositAddress && status && !status.terminal ? liveQuote.depositAddress : '';
   useEffect(() => {
@@ -456,7 +485,7 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
   }, [liveQuote, pollDeposit]);
 
   async function prepare() {
-    if (!origin || !destination || !dryQuote || busy) return;
+    if (!origin || !destination || !dryQuote || busy || !quoteAmount) return;
     setBusy(true);
     setError('');
     try {
@@ -464,7 +493,7 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
         dry: false,
         originAsset: origin.assetId,
         destinationAsset: destination.assetId,
-        amount: parsed.amount,
+        amount: quoteAmount,
         refundTo: refund,
         recipient,
       });
@@ -575,23 +604,49 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
       {separateStake ? <p>Staking is a separate step after native NEAR is in the wallet. This request does not stake the bridged token.</p> : null}
       {!signable ? <p>This chat can ask a wallet to approve Solana devnet, Base Sepolia, or a NEAR testnet deposit. {chainLabel(parsed.chain)} stays on the funding page.</p> : null}
       {catalogError ? <p className="warn-box" role="alert">{catalogError}</p> : null}
-      {signable && !namedRecipient && !connectedRecipient ? (
-        <Field id="chat-fund-recipient" label="NEAR testnet account" hint="Use name.testnet. A mainnet account is not accepted.">
+      {!parsed.amountWasNamed ? (
+        <Field id="chat-fund-amount" label="Amount" hint="Tidepool is asked after you enter an amount. Nothing is sent.">
           <input
-            id="chat-fund-recipient"
-            value={typedRecipient}
-            autoCapitalize="none"
-            spellCheck={false}
-            placeholder="name.testnet"
-            onChange={(event) => {
-              setTypedRecipient(event.target.value);
-              setDryQuote(null);
-              setChecked(false);
-            }}
+            id="chat-fund-amount"
+            inputMode="decimal"
+            value={typedAmount}
+            onChange={(event) => setTypedAmount(event.target.value)}
           />
         </Field>
       ) : null}
-      {recipient && isNearTestnetAccount(recipient) ? <p>Recipient {recipient} on NEAR testnet.</p> : null}
+      {namedRecipient && customDestination === null ? <p id="chat-fund-destination">Destination {namedRecipient}.</p> : null}
+      {!namedRecipient && connectedRecipient && customDestination === null ? (
+        <p id="chat-fund-destination">I'll send this to your connected NEAR wallet: {connectedRecipient}.</p>
+      ) : null}
+      {!namedRecipient && !connectedRecipient && customDestination === null ? (
+        <p id="chat-fund-destination">Connect a NEAR testnet wallet to use it as the destination, or enter an account.</p>
+      ) : null}
+      {store.network !== 'testnet' && !namedRecipient ? <p className="hint">A mainnet account is not used as the destination.</p> : null}
+      {editingDestination ? (
+        <Field id="chat-fund-recipient" label="NEAR testnet account" hint="Use name.testnet. A mainnet account is not accepted.">
+          <input
+            id="chat-fund-recipient"
+            value={customDestination ?? ''}
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="name.testnet"
+            onChange={(event) => setCustomDestination(event.target.value)}
+          />
+        </Field>
+      ) : (
+        <button type="button" className="text-btn" id="chat-fund-change-destination" onClick={() => setCustomDestination(recipient)}>
+          Change destination
+        </button>
+      )}
+      {customDestination !== null && proposedRecipient ? (
+        <button type="button" className="text-btn" onClick={() => setCustomDestination(null)}>
+          Use {namedRecipient ? namedRecipient : `connected wallet ${connectedRecipient}`}
+        </button>
+      ) : null}
+      {customDestination !== null && recipient && !isNearTestnetAccount(recipient) ? (
+        <p className="field-error">Use a name.testnet account. A mainnet account is not accepted.</p>
+      ) : null}
+      {customDestination !== null && isNearTestnetAccount(recipient) ? <p>Destination {recipient}.</p> : null}
       {showWallet ? (
         <OriginWallet
           chain={parsed.chain === 'base' ? 'base' : 'sol'}
@@ -623,7 +678,7 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
       {signable && !refund ? <p className="hint">Connect the source wallet before Tidepool is asked for a quote. Nothing is sent.</p> : null}
       {busy && !quote && !liveQuote ? <p className="loading-line" role="status">Asking Tidepool for a testnet quote…</p> : null}
       {quote ? <TxTable rows={quotePreviewRows(quote)} /> : null}
-      {liveQuote?.depositAddress ? (
+      {liveQuote?.depositAddress && status?.status !== 'SUCCESS' ? (
         <>
           <h2>Deposit is not sent yet</h2>
           <ul className="plain-steps">
@@ -633,14 +688,30 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
         </>
       ) : null}
       {note && !(status && status.terminal) ? <p role="status">{note}</p> : null}
-      {status ? (
-        <div className={status.status === 'SUCCESS' ? 'result-panel success' : status.terminal ? 'result-panel failure' : undefined}>
+      {status?.status === 'SUCCESS' ? (
+        <div className="result-panel success" id="chat-fund-complete">
+          <p className="eyebrow">Tidepool status</p>
+          <h2>Completed</h2>
+          <p>Tidepool reported SUCCESS.</p>
+          {status.amountOutFormatted
+            ? <p>Settled amount: {status.amountOutFormatted}.</p>
+            : <p>The status did not include a settled amount.</p>}
+          {status.hashes.length ? (
+            <div className="inline-actions">
+              {status.hashes.map((item) => item.url ? (
+                <a key={`${item.label}-${item.hash}`} className="btn btn-secondary" href={item.url} target="_blank" rel="noreferrer">{item.label}</a>
+              ) : (
+                <span key={item.hash} className="mono">{item.hash}</span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : status ? (
+        <div className={status.terminal ? 'result-panel failure' : undefined}>
           <p className="eyebrow">Tidepool status</p>
           <h2>{status.label}</h2>
           <p>API status: {status.status}.{status.updatedAt ? ` Updated ${status.updatedAt}.` : ''}</p>
-          {status.status === 'SUCCESS'
-            ? <p>This success is the status Tidepool returned. It is not inferred from a hash or from the origin transaction alone. Activity includes this status.</p>
-            : <p>An origin transaction, even after the test network confirms it, is not a finished transfer.</p>}
+          <p>An origin transaction, even after the test network confirms it, is not a finished transfer.</p>
           {status.amountOutFormatted ? <p>Settled output in the status: {status.amountOutFormatted}.</p> : null}
         </div>
       ) : null}
@@ -648,7 +719,7 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
       {!liveQuote && dryQuote ? (
         <label className="check">
           <input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} disabled={busy} />
-          <span>I understand these are testnet tokens with no value. Preparing a deposit asks Tidepool for an address. It does not send funds.</span>
+          <span>I want this deposit prepared for {recipient}. Tidepool will be asked for an address. It does not send funds.</span>
         </label>
       ) : null}
       {liveQuote && !status?.terminal ? (
@@ -671,10 +742,10 @@ export function ChatFunding({ prompt, separateStake }: { prompt: string; separat
             Approve in wallet
           </Button>
         ) : null}
-        {parsed.chain === 'near' && store.network !== 'testnet' ? (
+        {(parsed.chain === 'near' || !namedRecipient) && store.network !== 'testnet' ? (
           <Button onClick={() => void store.setNetwork('testnet')}>Use testnet</Button>
         ) : null}
-        {parsed.chain === 'near' && !store.accountId ? <Button onClick={store.openConnect}>Connect a NEAR wallet</Button> : null}
+        {!connectedRecipient ? <Button id="chat-fund-connect" variant="primary" onClick={store.openConnect}>Connect a NEAR wallet</Button> : null}
         <Link className="btn btn-secondary" to={fundingPath(prompt)}>Open the funding page</Link>
         {separateStake ? <Link className="btn btn-secondary" to="/staking">Staking page</Link> : null}
       </div>
