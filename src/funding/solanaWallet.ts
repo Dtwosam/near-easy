@@ -1,6 +1,51 @@
 import { isOriginAddress } from './plan';
 import { SOLANA_DEVNET_CHAIN } from './originPlan';
 
+/** Phantom's current account list uses this alias as well as the CAIP-2 devnet id. */
+const SOLANA_DEVNET_ALIAS = 'solana:devnet';
+
+export function solanaDevnetChain(chains: readonly string[] | undefined): string | null {
+  const listed = chains ?? [];
+  if (listed.includes(SOLANA_DEVNET_CHAIN)) return SOLANA_DEVNET_CHAIN;
+  if (listed.includes(SOLANA_DEVNET_ALIAS)) return SOLANA_DEVNET_ALIAS;
+  return null;
+}
+
+export function walletStandardSignInput(account: StandardAccount, transaction: Uint8Array): {
+  account: StandardAccount;
+  transaction: Uint8Array;
+  chain: string;
+} {
+  const chain = solanaDevnetChain(account.chains);
+  if (!chain) throw new Error('The wallet is not on Solana devnet.');
+  return { account, transaction, chain };
+}
+
+export function signedTransactionBytes(outputs: unknown): Uint8Array | null {
+  const row = Array.isArray(outputs) ? outputs[0] : outputs;
+  if (!row || typeof row !== 'object') return null;
+  const signed = (row as { signedTransaction?: unknown }).signedTransaction;
+  if (signed instanceof Uint8Array) return new Uint8Array(signed);
+  if (signed instanceof ArrayBuffer) return new Uint8Array(signed);
+  if (ArrayBuffer.isView(signed)) {
+    const view = signed as ArrayBufferView;
+    return new Uint8Array(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
+  }
+  return null;
+}
+
+export async function requestStandardSignature(
+  signTransaction: (input: { account: StandardAccount; transaction: Uint8Array; chain: string }) => Promise<unknown>,
+  account: StandardAccount,
+  transaction: Uint8Array,
+): Promise<Uint8Array> {
+  const bytes = Uint8Array.from(transaction);
+  const outputs = await signTransaction(walletStandardSignInput(account, bytes));
+  const signed = signedTransactionBytes(outputs);
+  if (!signed) throw new Error('The wallet did not return a signed transaction.');
+  return signed;
+}
+
 type StandardAccount = {
   address: string;
   publicKey: Uint8Array;
@@ -106,12 +151,12 @@ function collect(): ListedWallet[] {
           connect?: (input?: { silent?: boolean }) => Promise<{ accounts: StandardAccount[] }>;
         } | undefined;
         const sign = wallet.features['solana:signTransaction'] as {
-          signTransaction?: (inputs: { account: StandardAccount; transaction: Uint8Array; chain?: string }[]) => Promise<{ signedTransaction: Uint8Array }[]>;
+          signTransaction?: (input: { account: StandardAccount; transaction: Uint8Array; chain?: string }) => Promise<unknown>;
         } | undefined;
         if (!connect?.connect || !sign?.signTransaction) throw new Error('This Solana wallet cannot sign a devnet transaction.');
         const result = await connect.connect();
         const accounts = result.accounts?.length ? result.accounts : wallet.accounts;
-        const account = accounts.find((item) => item.chains?.includes(SOLANA_DEVNET_CHAIN))
+        const account = accounts.find((item) => solanaDevnetChain(item.chains))
           ?? accounts.find((item) => item.chains?.some((chain) => chain.startsWith('solana:')))
           ?? accounts[0];
         if (!account?.address || !isOriginAddress('sol', account.address)) {
@@ -124,12 +169,11 @@ function collect(): ListedWallet[] {
             await disconnectFeature?.disconnect?.();
           },
           async sign(transaction) {
-            // Sign only. The wallet must not choose the cluster. NEAR Easy submits the bytes to devnet.
+            // One object, not an array. signTransaction is a rest-parameter method.
+            // The wallet only signs. Submission stays on Solana devnet.
+            if (!sign.signTransaction) throw new Error('This Solana wallet cannot sign a devnet transaction.');
             const bytes = transaction.serialize({ requireAllSignatures: false, verifySignatures: false });
-            const outputs = await sign.signTransaction?.([{ account, transaction: bytes, chain: SOLANA_DEVNET_CHAIN }]);
-            const signed = outputs?.[0]?.signedTransaction;
-            if (!(signed instanceof Uint8Array)) throw new Error('The wallet did not return a signed transaction.');
-            return signed;
+            return requestStandardSignature(sign.signTransaction, account, bytes);
           },
         };
       },
@@ -194,6 +238,13 @@ export async function approveSolanaDeposit(id: string, input: {
   const session = sessions.get(id);
   if (!session || session.address !== input.owner) throw new Error('No Solana wallet is connected.');
   const transfer = await import('./solanaTransfer');
+  const { findConfirmedSolanaDeposit } = await import('./originRpc');
+  try {
+    const existing = await findConfirmedSolanaDeposit(input);
+    if (existing) return existing;
+  } catch {
+    // A failed lookup is not a broadcast. Signing can still proceed.
+  }
   const recentBlockhash = await transfer.recentDevnetBlockhash();
   const transaction = transfer.buildSolanaDepositTransaction({ ...input, recentBlockhash });
   if (!transaction) throw new Error('This quote cannot be sent on Solana devnet.');

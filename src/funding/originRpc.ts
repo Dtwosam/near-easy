@@ -72,6 +72,33 @@ export async function verifySolanaDeposit(hash: string, expected: {
   return { state: 'pending', hash: signature, detail: 'Solana devnet has not confirmed this transaction yet.' };
 }
 
+/** Read-only. Returns a signature only when that signature already credits this deposit. */
+export async function findConfirmedSolanaDeposit(input: {
+  owner: string;
+  depositAddress: string;
+  amount: string;
+  mint: string | null;
+}): Promise<string | null> {
+  assertSolanaDevnetRpc(SOLANA_DEVNET_RPC);
+  if (!isSolanaSignature(input.owner) && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(input.owner)) return null;
+  if (!/^\d+$/.test(input.amount) || input.amount === '0') return null;
+  const listed = await postRpc(SOLANA_DEVNET_RPC, {
+    jsonrpc: '2.0',
+    id: 'near-easy',
+    method: 'getSignaturesForAddress',
+    params: [input.owner, { limit: 25, commitment: 'confirmed' }],
+  });
+  if (!Array.isArray(listed)) return null;
+  for (const row of listed) {
+    if (!row || typeof row !== 'object') continue;
+    const signature = (row as { signature?: unknown }).signature;
+    if (typeof signature !== 'string' || (row as { err?: unknown }).err != null) continue;
+    const check = await verifySolanaDeposit(signature, input);
+    if (check.state === 'confirmed') return signature;
+  }
+  return null;
+}
+
 export async function verifyBaseDeposit(hash: string, quote: TransferSource): Promise<OriginCheck> {
   const txHash = hash.trim();
   if (!isEvmHash(txHash)) return { state: 'missing', hash: txHash, detail: 'That is not a Base Sepolia transaction hash.' };

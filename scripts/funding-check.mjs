@@ -13,6 +13,7 @@ const origin = await server.ssrLoadModule('/src/funding/originPlan.ts');
 const rpc = await server.ssrLoadModule('/src/funding/originRpc.ts');
 const evm = await server.ssrLoadModule('/src/funding/evmWallet.ts');
 const solanaTx = await server.ssrLoadModule('/src/funding/solanaTransfer.ts');
+const solanaWallet = await server.ssrLoadModule('/src/funding/solanaWallet.ts');
 
 const failures = [];
 function check(name, ok, detail = '') {
@@ -129,6 +130,45 @@ check('wrong solana amount is not confirmed', origin.parseSolanaDeposit({
 check('failed solana transaction is not confirmed', origin.parseSolanaDeposit({
   meta: { err: { InstructionError: [0, 'Custom'] } },
 }, { hash: solHash, depositAddress: depositOwner, amount: '10000000', mint }).state === 'failed');
+const devnetAccount = {
+  address: payer,
+  publicKey: new Uint8Array(32),
+  chains: [origin.SOLANA_DEVNET_CHAIN, 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'],
+  features: ['solana:signTransaction'],
+};
+const aliasAccount = { ...devnetAccount, chains: ['solana:devnet'] };
+const mainnetAccount = { ...devnetAccount, chains: ['solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'] };
+let seenSignInput = null;
+const signedBytes = new Uint8Array(64).fill(7);
+const returned = await solanaWallet.requestStandardSignature(async (input) => {
+  seenSignInput = input;
+  if (Array.isArray(input)) throw new Error('signTransaction was called with an array');
+  if (input.transaction.constructor !== Uint8Array) throw new Error('transaction bytes were not a Uint8Array');
+  return [{ signedTransaction: signedBytes }];
+}, devnetAccount, Uint8Array.from([4, 5, 6]));
+check('phantom sign request is one devnet object', seenSignInput && !Array.isArray(seenSignInput) && seenSignInput.chain === origin.SOLANA_DEVNET_CHAIN && seenSignInput.transaction instanceof Uint8Array);
+check('signed bytes come back from the wallet standard result', returned instanceof Uint8Array && returned.length === 64 && returned[0] === 7);
+check('phantom devnet alias is accepted', solanaWallet.solanaDevnetChain(aliasAccount.chains) === 'solana:devnet');
+let mainnetRefused = false;
+try {
+  solanaWallet.walletStandardSignInput(mainnetAccount, new Uint8Array([1]));
+} catch (error) {
+  mainnetRefused = error instanceof Error && /not on solana devnet/i.test(error.message);
+}
+check('mainnet-only solana account is refused', mainnetRefused);
+check('wallet standard failure keeps its reason', origin.explainOriginError({ message: 'Expected transaction to be a Uint8Array' }).includes('Uint8Array'));
+check('missing signed transaction keeps its reason', origin.explainOriginError(new Error('The wallet did not return a signed transaction.')).includes('did not return a signed transaction'));
+check('seed phrase is still refused', origin.explainOriginError(new Error('paste your seed phrase')).includes('will not ask for a seed phrase'));
+check('declined wallet stays a decline', origin.explainOriginError({ code: 4001, message: 'User rejected the request.' }).includes('declined'));
+const { Keypair } = await import('@solana/web3.js');
+const freshOwner = Keypair.generate().publicKey.toBase58();
+const prior = await rpc.findConfirmedSolanaDeposit({
+  owner: freshOwner,
+  depositAddress: depositOwner,
+  amount: '1000000',
+  mint,
+});
+check('an account with no signatures is not treated as already broadcast', prior === null);
 
 const baseHash = `0x${'ab'.repeat(32)}`;
 const baseMatch = origin.parseBaseDeposit({

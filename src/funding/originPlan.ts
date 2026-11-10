@@ -288,20 +288,34 @@ export function originExplorer(blockchain: string, hash: string): string | null 
   return null;
 }
 
+function originErrorText(error: unknown): string {
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message;
+  return '';
+}
+
+function clipOriginDetail(message: string): string {
+  const text = message.replace(/\s+/g, ' ').trim();
+  if (text.length <= 180) return text;
+  return `${text.slice(0, 177)}...`;
+}
+
 export function explainOriginError(error: unknown): string {
-  const message = error instanceof Error ? error.message : '';
+  const message = originErrorText(error);
   const lower = message.toLowerCase();
+  const detail = message ? clipOriginDetail(message) : '';
   if (/seed phrase|private key|secret key|mnemonic|recovery phrase/.test(lower)) {
     return 'NEAR Easy will not ask for a seed phrase or a private key. Nothing was sent.';
   }
   if (/reject|denied|cancel|closed|dismiss|user rejected|declined/.test(lower)) {
     return 'The wallet declined the transfer. Nothing was confirmed.';
   }
-  if (/not on base sepolia|only solana devnet|mainnet/.test(lower)) {
+  if (/not on base sepolia|only solana devnet|not on solana devnet|mainnet/.test(lower)) {
     return 'The wallet is not on the required test network. Nothing was sent.';
   }
   if (/insufficient/.test(lower)) {
-    return 'The wallet does not have enough testnet tokens or fee balance for this transfer. Nothing was confirmed.';
+    return `The wallet does not have enough testnet tokens or fee balance for this transfer. ${detail} Nothing was confirmed.`;
   }
   if (/no solana wallet|no evm wallet|no longer available|not connected|did not return an address/.test(lower)) {
     return 'No testnet wallet is connected. Nothing was sent.';
@@ -310,8 +324,9 @@ export function explainOriginError(error: unknown): string {
     return 'This wallet cannot sign a testnet transfer for NEAR Easy to submit. Nothing was sent.';
   }
   if (/blockhash|simulation|custom program error|rejected the transfer/.test(lower)) {
-    return 'The test network rejected the transfer before it could be confirmed. Nothing is marked successful.';
+    return `The test network rejected the transfer before it could be confirmed. ${detail} Nothing is marked successful.`;
   }
+  if (detail) return `${detail} Nothing was confirmed.`;
   return 'The transfer could not be submitted. Nothing was confirmed.';
 }
 
